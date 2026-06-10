@@ -67,7 +67,8 @@ jobs:
 
       - name: Extract boot and rootfs partitions
         run: |
-          diskimg=$(ls -la output/images/*.img)
+          diskimg=$(find output/images -name "*.img" | head -n 1)
+          echo "disk image: $diskimg"
           loop=$(sudo losetup --find --show --partscan $diskimg)
           sudo img2simg ${loop}p1 burn/boot.simg
           sudo img2simg ${loop}p2 burn/rootfs.simg
