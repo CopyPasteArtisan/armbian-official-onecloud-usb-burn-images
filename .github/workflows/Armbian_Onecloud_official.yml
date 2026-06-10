@@ -108,11 +108,14 @@ jobs:
             sha256sum "$f" | tee -a sha256sum
             xz --threads=0 --compress "$f"
           done
+          
+          image_name=$(ls output/images | head -n 1)
+          echo "IMAGENAME=$image_name" >> $GITHUB_ENV
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: armbian-official-burn-images-${{ env.TAG }}
+          name: ${{ env.IMAGENAME }}-${{ env.TAG }}
           path: output/images/*
 
       - name: Generate release informations
