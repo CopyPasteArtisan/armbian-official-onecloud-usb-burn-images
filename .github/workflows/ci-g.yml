@@ -1,0 +1,189 @@
+name: CI-G
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - readme
+    paths:
+      - .github/workflows/ci.yml
+
+env:
+  SCRIPT_REPO: ${{ github.repository }}
+  SCRIPT_REF: ${{ github.ref_name }}
+  UBOOT_REPO: hzyitc/u-boot-onecloud
+  UBOOT_RELEASE: latest
+  UBOOT_BURNIMG: eMMC.burn.img
+  # 您指定的官方镜像下载链接
+  ARMBIAN_IMG_URL: https://netcup-01.armbian.com/dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-22.04
+    outputs:
+      env: ${{ steps.get.outputs.env }}
+    steps:
+      - id: get
+        name: Get repositories information
+        run: |
+          TIME="$(curl https://api.github.com/repos/${SCRIPT_REPO}/actions/runs/${GITHUB_RUN_ID} | jq -r .created_at)"
+          TAG="ci-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S-%Z')"
+
+          UBOOT_TAG=$(curl https://api.github.com/repos/${UBOOT_REPO}/releases/${UBOOT_RELEASE} | jq -r .tag_name)
+
+          cat <<EOF | sed -E 's/^  //' >>$GITHUB_ENV
+            TIME=$TIME
+            TAG=$TAG
+            UBOOT_TAG=$UBOOT_TAG
+          EOF
+          echo "env=$(cat $GITHUB_ENV | base64 -w 0)" >>$GITHUB_OUTPUT
+
+      - name: Show repositories information
+        run: |
+          C_RESET="\e[0m"
+          C_BLUE="\e[34m"
+          C_MAGENTA="\e[35m"
+          C_GREEN="\e[32m"
+
+          echo -e "$(cat <<EOF | sed -E 's/^  //'
+            TIME: ${C_GREEN}$(date -d "$TIME" +'%Y-%m-%d %H:%M:%S %Z(%:z)')${C_RESET}
+            U-Boot: ${C_BLUE}${UBOOT_REPO}${C_RESET}@${C_MAGENTA}${UBOOT_RELEASE}${C_RESET}(https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_RELEASE})
+                    ${C_MAGENTA}${UBOOT_TAG}${C_RESET}(https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_TAG})
+            Image URL: ${C_BLUE}${ARMBIAN_IMG_URL}${C_RESET}
+          EOF
+          )"
+
+          cat <<EOF | sed -E 's/^  //' >>$GITHUB_STEP_SUMMARY
+            # $(date -d "$TIME" +'%Y-%m-%d %H:%M:%S %Z(%:z)')
+
+            ## Sources
+            U-Boot: [${UBOOT_REPO}@${UBOOT_RELEASE}](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_RELEASE}) ([\`${UBOOT_TAG}\`](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_TAG}))
+            Armbian Image Base: [Download Link](${ARMBIAN_IMG_URL})
+          EOF
+
+      - name: Generate release informations
+        run: |
+          cat <<EOF | sed -E 's/^  //' | tee Release.md
+            CI $(date -d "$TIME" +'%Y-%m-%d %H:%M:%S %Z(%:z)')
+
+            # Sources
+            U-Boot: [${UBOOT_REPO}@${UBOOT_RELEASE}](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_RELEASE}) ([\`${UBOOT_TAG}\`](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_TAG}))
+            Armbian Image Base: ${ARMBIAN_IMG_URL}
+
+            # SHA256
+          EOF
+
+          echo "NAME=$(head --line=1 Release.md)" >>$GITHUB_ENV
+          tail --line=+2 Release.md >Body.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.NAME }}
+          body_path: Body.md
+
+  pack-burn-image:
+    name: Pack Burn Image
+    needs: prepare
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Import env
+        run: |
+          echo "$(echo "${{ needs.prepare.outputs.env }}" | base64 -d)" >>$GITHUB_ENV
+
+      - name: Install Dependents
+        run: |
+          sudo apt update
+          sudo apt install -y img2simg xz-utils
+          
+          ver="v0.3.1"
+          curl -L -o ./AmlImg https://github.com/hzyitc/AmlImg/releases/download/$ver/AmlImg_${ver}_linux_amd64
+          chmod +x ./AmlImg
+
+      - name: Download and decompress Official Armbian Image
+        run: |
+          mkdir -p workspace/output
+          echo "::group::Downloading Armbian Image"
+          curl -L -o workspace/armbian.img.xz "${{ env.ARMBIAN_IMG_URL }}"
+          echo "::endgroup::"
+          
+          echo "::group::Decompressing Armbian Image"
+          xz -d workspace/armbian.img.xz
+          # 此时 workspace/ 目录下会生成解压后的 armbian.img
+          echo "::endgroup::"
+
+      - name: Download and unpack the latest u-boot
+        run: |
+          mkdir -p burn
+          echo "::group::Download U-Boot"
+          curl -L -o ./uboot.img https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}
+          echo "::endgroup::"
+
+          echo "::group::Unpack U-Boot"
+          ./AmlImg unpack ./uboot.img burn/
+          echo "::endgroup::"
+
+      - name: Extract boot and rootfs partitions
+        run: |
+          diskimg="workspace/armbian.img"
+          
+          # 挂载 loop 设备并扫描分区
+          loop=$(sudo losetup --find --show --partscan $diskimg)
+          
+          # 将原始分区转换为 Android sparse 镜像
+          sudo img2simg ${loop}p1 burn/boot.simg
+          sudo img2simg ${loop}p2 burn/rootfs.simg
+          
+          # 卸载 loop 设备
+          sudo losetup -d $loop
+          sudo chown $(id -u):$(id -g) -R burn/
+
+      - name: Generate burn image
+        run: |
+          echo -n "sha1sum $(sha1sum burn/boot.simg | awk '{print $1}')" >burn/boot.VERIFY
+          echo -n "sha1sum $(sha1sum burn/rootfs.simg | awk '{print $1}')" >burn/rootfs.VERIFY
+
+          cat <<EOF >>burn/commands.txt
+          PARTITION:boot:sparse:boot.simg
+          VERIFY:boot:normal:boot.VERIFY
+          PARTITION:rootfs:sparse:rootfs.simg
+          VERIFY:rootfs:normal:rootfs.VERIFY
+          EOF
+
+          # 生成最终的 .burn.img 并存放到输出目录
+          ./AmlImg pack workspace/output/Armbian_Onecloud.burn.img burn/
+
+      - name: Hash and compress images
+        run: |
+          cd workspace/output
+          for f in *.burn.img; do
+            sha256sum "$f" | tee -a sha256sum
+            xz --threads=0 --compress "$f"
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Armbian_Onecloud_burn_image
+          path: workspace/output/*
+
+      - name: Generate release informations
+        run: |
+          cat <<EOF | sed -E 's/^  //' | tee Release.md
+            $(cat workspace/output/sha256sum | awk '{printf "%s: `%s`\n", $2, $1}')
+          EOF
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          append_body: true
+          body_path: Release.md
+          files: |
+            workspace/output/*
