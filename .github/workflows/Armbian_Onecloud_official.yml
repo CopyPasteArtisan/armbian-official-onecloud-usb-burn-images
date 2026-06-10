@@ -90,6 +90,7 @@ jobs:
           prefix=$(ls output/images/*.img | sed 's/\.img$//')
           burnimg=${prefix}.burn.img
           ./AmlImg pack $burnimg burn/
+          rm -f output/images/*.img
 
       - name: Hash and compress images
         run: |
@@ -101,7 +102,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 
+          name: armbian-official-burn-images
           path: output/images/*
 
       - name: Generate release informations
