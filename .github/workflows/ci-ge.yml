@@ -1,4 +1,4 @@
-name: CI-G
+name: CI-Ge
 
 on:
   workflow_dispatch:
