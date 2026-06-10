@@ -112,7 +112,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: armbian-official-burn-images
+          name: armbian-official-burn-images-${{ env.TAG }}
           path: output/images/*
 
       - name: Generate release informations
