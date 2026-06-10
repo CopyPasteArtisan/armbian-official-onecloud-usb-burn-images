@@ -29,6 +29,7 @@ jobs:
         run: |
           TIME="$(curl https://api.github.com/repos/${SCRIPT_REPO}/actions/runs/${GITHUB_RUN_ID} | jq -r .created_at)"
           TAG="ci-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S-%Z')"
+          echo "TAG=$TAG" >> $GITHUB_ENV
           
           sudo apt-get update
           sudo apt-get install img2simg
@@ -87,7 +88,8 @@ jobs:
           VERIFY:rootfs:normal:rootfs.VERIFY
           EOF
 
-          prefix=$(ls output/images/*.img | sed 's/\.img$//')
+          # prefix=$(ls output/images/*.img | sed 's/\.img$//')
+          prefix=$(find output/images -name "*.img" | head -n 1 | sed 's/\.img$//')
           burnimg=${prefix}.burn.img
           ./AmlImg pack $burnimg burn/
           
