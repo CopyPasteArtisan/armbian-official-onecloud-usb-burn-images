@@ -6,7 +6,7 @@ on:
     branches:
       - readme
     paths:
-      - .github/workflows/ci.yml
+      - .github/workflows/ci-gr.yml
 
 env:
   SCRIPT_REPO: ${{ github.repository }}
@@ -110,7 +110,7 @@ jobs:
       - name: Download official Armbian image
         run: |
           echo "::group::Download official image"
-          curl -L -o Armbian.img.xz https://mirror.twds.com.tw/armbian-dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
+          curl -L -o Armbian.img.xz https://mirrors.dotsrc.org/armbian-dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
           echo "::endgroup::"
           echo "::group::Decompress"
           xz -d Armbian.img.xz
