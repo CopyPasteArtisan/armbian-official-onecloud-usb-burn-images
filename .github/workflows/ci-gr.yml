@@ -1,0 +1,162 @@
+name: CI-Gr
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - readme
+    paths:
+      - .github/workflows/ci.yml
+
+env:
+  SCRIPT_REPO: ${{ github.repository }}
+  SCRIPT_REF: ${{ github.ref_name }}
+  UBOOT_REPO: hzyitc/u-boot-onecloud
+  UBOOT_RELEASE: latest
+  UBOOT_BURNIMG: eMMC.burn.img
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-22.04
+    outputs:
+      env: ${{ steps.get.outputs.env }}
+    steps:
+      - id: get
+        name: Get repositories information
+        run: |
+          TIME="$(curl -s https://api.github.com/repos/${SCRIPT_REPO}/actions/runs/${GITHUB_RUN_ID} | jq -r .created_at)"
+          TAG="ci-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S-%Z')"
+          SCRIPT_SHA=$(curl -s https://api.github.com/repos/${SCRIPT_REPO}/commits/${SCRIPT_REF} | jq -r .sha)
+          UBOOT_TAG=$(curl -s https://api.github.com/repos/${UBOOT_REPO}/releases/${UBOOT_RELEASE} | jq -r .tag_name)
+
+          cat <<EOF | sed -E 's/^  //' >>$GITHUB_ENV
+            TIME=$TIME
+            TAG=$TAG
+            SCRIPT_SHA=$SCRIPT_SHA
+            UBOOT_TAG=$UBOOT_TAG
+          EOF
+          echo "env=$(cat $GITHUB_ENV | base64 -w 0)" >>$GITHUB_OUTPUT
+
+      - name: Show repositories information
+        run: |
+          C_RESET="\e[0m"
+          C_GREEN="\e[32m"
+          C_BLUE="\e[34m"
+          C_MAGENTA="\e[35m"
+          C_YELLOW="\e[33m"
+
+          echo -e "$(cat <<EOF | sed -E 's/^  //'
+            TIME: ${C_GREEN}$(date -d "$TIME" +'%Y-%m-%d %H:%M:%S %Z(%:z)')${C_RESET}
+            Script: ${C_BLUE}${SCRIPT_REPO}${C_RESET}@${C_MAGENTA}${SCRIPT_REF}${C_RESET}
+            U-Boot: ${C_BLUE}${UBOOT_REPO}${C_RESET}@${C_MAGENTA}${UBOOT_RELEASE}${C_RESET} (${C_YELLOW}${UBOOT_TAG}${C_RESET})
+          EOF
+          )"
+
+      - name: Generate release informations
+        run: |
+          cat <<EOF | sed -E 's/^  //' | tee Release.md
+            CI $(date -d "$TIME" +'%Y-%m-%d %H:%M:%S %Z(%:z)')
+            # Sources
+            Script: [${SCRIPT_REPO}@${SCRIPT_REF}](https://github.com/${SCRIPT_REPO}/tree/${SCRIPT_REF})
+            U-Boot: [${UBOOT_REPO}@${UBOOT_RELEASE}](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_RELEASE}) [](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_TAG})
+            # Official Armbian Image
+            Image: Armbian 24.11.1 (bookworm, current 6.6.43 minimal)
+          EOF
+          echo "NAME=$(head --line=1 Release.md)" >>$GITHUB_ENV
+          tail --line=+2 Release.md >Body.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.NAME }}
+          body_path: Body.md
+
+  build:
+    name: Build burn.img from official image
+    needs: prepare
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Import env
+        run: |
+          echo "$(echo "${{ needs.prepare.outputs.env }}" | base64 -d)" >>$GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xz-utils img2simg
+
+      - name: Download AmlImg tool
+        run: |
+          ver="v0.3.1"
+          curl -L -o ./AmlImg https://github.com/hzyitc/AmlImg/releases/download/$ver/AmlImg_${ver}_linux_amd64
+          chmod +x ./AmlImg
+
+      - name: Download latest u-boot
+        run: |
+          echo "::group::Download u-boot"
+          curl -L -o ./uboot.img https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}
+          echo "::endgroup::"
+          echo "::group::Unpack u-boot"
+          ./AmlImg unpack ./uboot.img burn/
+          echo "::endgroup::"
+
+      - name: Download official Armbian image
+        run: |
+          echo "::group::Download official image"
+          curl -L -o Armbian.img.xz https://mirror.twds.com.tw/armbian-dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
+          echo "::endgroup::"
+          echo "::group::Decompress"
+          xz -d Armbian.img.xz
+          mv Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img Armbian.img
+          echo "::endgroup::"
+
+      - name: Extract boot and rootfs partitions
+        run: |
+          echo "::group::Extract partitions"
+          loop=$(sudo losetup --find --show --partscan Armbian.img)
+          sudo img2simg ${loop}p1 burn/boot.simg
+          sudo img2simg ${loop}p2 burn/rootfs.simg
+          sudo losetup -d $loop
+          sudo chown $(id -u):$(id -g) -R burn/
+          echo "::endgroup::"
+
+      - name: Generate burn image
+        run: |
+          echo -n "sha1sum $(sha1sum burn/boot.simg | awk '{print $1}')" > burn/boot.VERIFY
+          echo -n "sha1sum $(sha1sum burn/rootfs.simg | awk '{print $1}')" > burn/rootfs.VERIFY
+
+          cat <<EOF > burn/commands.txt
+          PARTITION:boot:sparse:boot.simg
+          VERIFY:boot:normal:boot.VERIFY
+          PARTITION:rootfs:sparse:rootfs.simg
+          VERIFY:rootfs:normal:rootfs.VERIFY
+          EOF
+
+          ./AmlImg pack Armbian.burn.img burn/
+
+      - name: Hash and compress final image
+        run: |
+          sha256sum Armbian.burn.img | tee sha256sum.txt
+          xz --threads=0 Armbian.burn.img
+
+      - name: Generate release info
+        run: |
+          cat <<EOF | sed -E 's/^  //' | tee Release.md
+          $(cat sha256sum.txt | awk '{printf "%s: \`%s\`\n", $2, $1}')
+          EOF
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          append_body: true
+          body_path: Release.md
+          files: |
+            *.burn.img.xz
+            sha256sum.txt
