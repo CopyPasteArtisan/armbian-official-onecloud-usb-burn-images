@@ -43,13 +43,14 @@ jobs:
           IMAGE_URL="${{ github.event.inputs.image_url }}"
           echo "下载链接: $IMAGE_URL"
           curl -L -O "$IMAGE_URL"
+          ls -la
           echo "::endgroup::"
           
           echo "::group::解压镜像..."
           xz -d *.img.xz
 
           mkdir -p output/images
-          mv *.img.xz output/images
+          mv *.img output/images
           ls -la output/images/*.img
           echo "::endgroup::"
 
