@@ -90,7 +90,15 @@ jobs:
           prefix=$(ls output/images/*.img | sed 's/\.img$//')
           burnimg=${prefix}.burn.img
           ./AmlImg pack $burnimg burn/
-          rm -f output/images/*.img
+          
+          for f in output/images/*.img; do
+              case "$f" in
+                  *.burn.img) continue ;;
+                  *) rm -f "$f" ;;
+              esac
+          done
+
+          ls -la output/images
 
       - name: Hash and compress images
         run: |
