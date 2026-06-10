@@ -6,7 +6,7 @@ on:
       image_url:
         description: 'Armbian minimal.img.xz 下载链接'
         required: true
-        default: 'https://k-space.ee.armbian.com/archive/onecloud/archive/Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz'
+        default: 'https://mirror.twds.com.tw/armbian-dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz'
   push:
     branches:
       - readme
@@ -172,15 +172,20 @@ jobs:
           VERIFY:rootfs:normal:rootfs.VERIFY
           EOF
 
-          burnimg="output/images/Armbian_onecloud.burn.img"
+          # 复制原始img文件到output/images
+          cp armbian.img output/images/
+
+          # 获取原始img的前缀名称
+          prefix=$(ls output/images/*.img | sed 's/\.img$//')
+          burnimg=${prefix}.burn.img
           AmlImg pack $burnimg burn/
           
-          ls -lh $burnimg
+          ls -lh output/images/
 
-      - name: Compress and hash images
+      - name: Hash and compress images
         run: |
           cd output/images
-          for f in *.burn.img; do
+          for f in *.img; do
             sha256sum "$f" | tee -a sha256sum
             xz --threads=0 --compress "$f"
           done
