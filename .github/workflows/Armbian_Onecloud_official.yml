@@ -113,7 +113,7 @@ jobs:
           echo "IMAGENAME=$image_name" >> $GITHUB_ENV
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v3.2.2
         with:
           name: ${{ env.IMAGENAME }}-${{ env.TAG }}
           path: output/images/*
@@ -125,7 +125,7 @@ jobs:
           EOF
 
       - name: Upload to release
-        uses: softprops/action-gh-release@master
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
           append_body: true
