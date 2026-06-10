@@ -1,4 +1,4 @@
-name: Armbian_Onecloud_official
+name: Armbian-Onecloud-official
 
 on:
   workflow_dispatch:
@@ -42,7 +42,7 @@ jobs:
           echo "::group::下载镜像..."
           IMAGE_URL="${{ github.event.inputs.image_url }}"
           echo "下载链接: $IMAGE_URL"
-          curl -L "$IMAGE_URL"
+          curl -L -O "$IMAGE_URL"
           echo "::endgroup::"
           
           echo "::group::解压镜像..."
