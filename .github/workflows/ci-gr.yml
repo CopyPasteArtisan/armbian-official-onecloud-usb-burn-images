@@ -65,7 +65,7 @@ jobs:
             Script: [${SCRIPT_REPO}@${SCRIPT_REF}](https://github.com/${SCRIPT_REPO}/tree/${SCRIPT_REF})
             U-Boot: [${UBOOT_REPO}@${UBOOT_RELEASE}](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_RELEASE}) [](https://github.com/${UBOOT_REPO}/releases/tag/${UBOOT_TAG})
             # Official Armbian Image
-            Image: Armbian 24.11.1 (bookworm, current 6.6.43 minimal)
+            Image: Armbian 24.11.1 Onecloud bookworm minimal (official)
           EOF
           echo "NAME=$(head --line=1 Release.md)" >>$GITHUB_ENV
           tail --line=+2 Release.md >Body.md
@@ -79,7 +79,7 @@ jobs:
           body_path: Body.md
 
   build:
-    name: Build burn.img from official image
+    name: Build burn.img from official Armbian
     needs: prepare
     runs-on: ubuntu-22.04
     steps:
@@ -110,11 +110,22 @@ jobs:
       - name: Download official Armbian image
         run: |
           echo "::group::Download official image"
-          curl -L -o Armbian.img.xz https://mirrors.dotsrc.org/armbian-dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
+          # 你可以在这里更换其他版本的官方镜像链接
+          curl -L -o Armbian.img.xz https://mirror.twds.com.tw/armbian-dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
           echo "::endgroup::"
+
+      - name: Decompress image
+        run: |
           echo "::group::Decompress"
           xz -d Armbian.img.xz
-          mv Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img Armbian.img
+          # 自动查找解压后的 .img 文件（解决文件名不一致问题）
+          IMG_FILE=$(ls *.img | head -n1)
+          if [ -z "$IMG_FILE" ]; then
+            echo "Error: No .img file found after decompression!"
+            exit 1
+          fi
+          mv "$IMG_FILE" Armbian.img
+          echo "Using image: Armbian.img (original: $IMG_FILE)"
           echo "::endgroup::"
 
       - name: Extract boot and rootfs partitions
@@ -148,7 +159,7 @@ jobs:
 
       - name: Generate release info
         run: |
-          cat <<EOF | sed -E 's/^  //' | tee Release.md
+          cat <<EOF | sed -E 's/^  //' | tee -a Release.md
           $(cat sha256sum.txt | awk '{printf "%s: \`%s\`\n", $2, $1}')
           EOF
 
