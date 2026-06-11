@@ -1,7 +1,38 @@
-Amlogic USB Burning Tool可烧录/刷机的玩客云3/赚钱宝3 Armbian官方镜像，官方镜像默认写入USB/SD卡，现在可以直接写入eMMC启动 <br>
+Amlogic USB Burning Tool 可烧录/刷机的玩客云3/赚钱宝3 Armbian官方镜像，官方镜像默认写入USB/SD卡，现在可以直接写入eMMC启动 <br>
 Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 
+
+* 官方镜像站：https://archive.armbian.com/onecloud/archive/ <br>
+
 * 默认官方镜像：Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz <br>
+
+  ```
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.txt	19565 bytes	2024-08-27 05:09:39
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz	412498228 bytes	2024-08-27 05:10:17
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz.asc	833 bytes	2024-08-27 05:10:17
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz.sha	178 bytes	2024-08-27 05:10:17
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz.torrent	39577 bytes	2024-08-27 05:10:17
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.txt	19613 bytes	2024-08-27 05:10:17
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz	224204276 bytes	2024-08-27 05:11:05
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.asc	833 bytes	2024-08-27 05:11:05
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.sha	186 bytes	2024-08-27 05:11:05
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.torrent	25536 bytes	2024-08-27 05:11:05
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.txt	19643 bytes	2024-08-27 05:38:56
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz	1194535204 bytes	2024-08-27 05:40:48
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.asc	833 bytes	2024-08-27 05:40:48
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.sha	191 bytes	2024-08-27 05:40:48
+  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.torrent	99765 bytes	2024-08-27 05:40:48
+  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.txt	19547 bytes	2024-08-27 05:14:02
+  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz	424950180 bytes	2024-08-27 05:15:02
+  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz.asc	833 bytes	2024-08-27 05:15:02
+  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz.sha	175 bytes	2024-08-27 05:15:02
+  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz.torrent	40405 bytes	2024-08-27 05:15:02
+  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.txt	19595 bytes	2024-08-27 05:10:23
+  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz	214209416 bytes	2024-08-27 05:11:28
+  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz.asc	833 bytes	2024-08-27 05:11:28
+  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz.sha	183 bytes	2024-08-27 05:11:28
+  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz.torrent	24658 bytes	2024-08-27 05:11:28
+  ```
 
 * 默认用户名/密码：root/1234 <br>
 
@@ -16,7 +47,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 
 * 如果SSH登录后没有MOTD(Message of the day)，SSH执行下面命令，然后重新登录:
   ```shell
-  //原因是 /etc/update-motd.d/* 文件没有执行权限，默认644
+  // 原因是 /etc/update-motd.d/* 文件没有执行权限，默认644
   chmod 755 -R /etc/update-motd.d/
 
   // 检查修改结果
