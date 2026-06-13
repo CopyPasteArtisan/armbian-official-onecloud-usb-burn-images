@@ -59,6 +59,7 @@ jobs:
       - name: Download and unpack the latest u-boot
         run: |
           echo "::group::Download"
+          echo "https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}"
           curl -L -o ./uboot.img https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}
           echo "::endgroup::"
 
