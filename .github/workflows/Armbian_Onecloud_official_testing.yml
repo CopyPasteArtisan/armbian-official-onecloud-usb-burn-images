@@ -6,7 +6,7 @@ on:
       image_url:
         description: 'Download URL of Armbian img.xz'
         required: true
-        default: 'https://mirror.twds.com.tw/armbian-dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz'
+        default: 'https://armbian.lv.auroradev.org/dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz'
 
 env:
   SCRIPT_REPO: ${{ github.repository }}
