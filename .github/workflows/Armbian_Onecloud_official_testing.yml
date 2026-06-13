@@ -1,4 +1,4 @@
-name: Armbian Onecloud official Test
+name: Armbian Onecloud official Testing
 
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ jobs:
       - name: Install Dependents
         run: |
           TIME="$(curl https://api.github.com/repos/${SCRIPT_REPO}/actions/runs/${GITHUB_RUN_ID} | jq -r .created_at)"
-          TAG="ci-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S-%Z')"
+          TAG="CI-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S-%Z')"
           echo "TAG=$TAG" >> $GITHUB_ENV
           
           sudo apt-get update
