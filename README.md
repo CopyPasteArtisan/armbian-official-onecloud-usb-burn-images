@@ -7,31 +7,31 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 * 默认官方镜像：Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz <br>
 
   ```
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.txt	19565 bytes	2024-08-27 05:09:39
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz	412498228 bytes	2024-08-27 05:10:17
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz.asc	833 bytes	2024-08-27 05:10:17
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz.sha	178 bytes	2024-08-27 05:10:17
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43.img.xz.torrent	39577 bytes	2024-08-27 05:10:17
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.txt	19613 bytes	2024-08-27 05:10:17
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz	224204276 bytes	2024-08-27 05:11:05
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.asc	833 bytes	2024-08-27 05:11:05
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.sha	186 bytes	2024-08-27 05:11:05
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.torrent	25536 bytes	2024-08-27 05:11:05
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.txt	19643 bytes	2024-08-27 05:38:56
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz	1194535204 bytes	2024-08-27 05:40:48
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.asc	833 bytes	2024-08-27 05:40:48
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.sha	191 bytes	2024-08-27 05:40:48
-  📄 Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.torrent	99765 bytes	2024-08-27 05:40:48
-  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.txt	19547 bytes	2024-08-27 05:14:02
-  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz	424950180 bytes	2024-08-27 05:15:02
-  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz.asc	833 bytes	2024-08-27 05:15:02
-  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz.sha	175 bytes	2024-08-27 05:15:02
-  📄 Armbian_24.8.1_Onecloud_jammy_current_6.6.43.img.xz.torrent	40405 bytes	2024-08-27 05:15:02
-  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.txt	19595 bytes	2024-08-27 05:10:23
-  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz	214209416 bytes	2024-08-27 05:11:28
-  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz.asc	833 bytes	2024-08-27 05:11:28
-  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz.sha	183 bytes	2024-08-27 05:11:28
-  📄 Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz.torrent	24658 bytes	2024-08-27 05:11:28
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.txt	19.2 KiB	2024-11-25 00:29
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz	213.9 MiB	2024-11-25 00:37
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.asc	833 B	2024-11-25 00:37
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.sha	187 B	2024-11-25 00:37
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.torrent	24.8 KiB	2024-11-25 00:37
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.txt	19.2 KiB	2024-11-25 00:40
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz	1.1 GiB	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.asc	833 B	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.sha	192 B	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.torrent	97.0 KiB	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.txt	19.1 KiB	2024-11-25 00:42
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz	385.4 MiB	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz.asc	833 B	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz.sha	164 B	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz.torrent	37.8 KiB	2024-11-25 00:45
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.txt	19.1 KiB	2024-11-25 00:33
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz	208.6 MiB	2024-11-25 00:34
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz.asc	833 B	2024-11-25 00:34
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz.sha	172 B	2024-11-25 00:34
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz.torrent	24.3 KiB	2024-11-25 00:34
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.txt	19.2 KiB	2024-11-25 00:36
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz	1.1 GiB	2024-11-25 00:55
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz.asc	833 B	2024-11-25 00:55
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz.sha	189 B	2024-11-25 00:55
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz.torrent	94.5 KiB	2024-11-25 00:55
   ```
 
 * 默认用户名/密码：root/1234 <br>
@@ -45,7 +45,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
   hostnamectl set-hostname WS1608-006220 && sudo sed -i 's/\bonecloud\b/WS1608-006220/g' /etc/hosts && grep WS1608 /etc/hosts
   ```
 
-* 如果SSH登录后没有MOTD(Message of the day)，SSH执行下面命令，然后重新登录:
+* 如果SSH登录后没有MOTD(Message of the Day)，Shell执行下面命令，然后重新登录:
   ```shell
   // 原因是 /etc/update-motd.d/* 文件没有执行权限，默认644
   chmod 755 -R /etc/update-motd.d/
@@ -61,7 +61,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
   echo "none" > /sys/class/leds/onecloud\:blue\:alive/trigger && echo "default-on" > /sys/class/leds/onecloud\:green\:alive/trigger && echo "none" > /sys/class/leds/onecloud\:red\:alive/trigger
   ```
 
-* 固定原厂机身MAC地址，MACAddress=[你的设备MAC地址]:
+* 恢复原厂机身标签MAC地址，注意格式，MACAddress=[你的设备MAC地址]:
   ```shell
   // Netplan
   tee /etc/systemd/network/10-eth0.link <<-'EOF'
