@@ -132,42 +132,65 @@ jobs:
       - name: Hash and compress images
         run: |
           set -euo pipefail
-          # compute sha256 and compress each .img -> .img.xz
-          for f in output/images/*.img; do
-            sha256sum "$f" | tee -a sha256sum
-            xz --threads=0 --compress "$f"
-          done
-          
-          image_name=$(ls output/images | head -n 1)
-          echo "IMAGENAME=$image_name" >> $GITHUB_ENV
-
-          # download remote description (.img.txt) derived from IMAGE_URL
+      
+          # 1) 找到 Generate burn image 步骤生成的 burn image（*.burn.img）
+          burn_img=$(find output/images -type f -name "*.burn.img" | head -n 1 || true)
+          if [ -z "$burn_img" ]; then
+            echo "ERROR: no *.burn.img found in output/images (expected from Generate burn image step)"
+            ls -la output/images || true
+            exit 1
+          fi
+          echo "Found burn image: $burn_img"
+      
+          # 2) 计算 sha256 并压缩为 .xz（xz 默认替换原文件 -> 得到 *.burn.img.xz）
+          sha256sum "$burn_img" | tee -a sha256sum
+          xz --threads=0 --compress "$burn_img"
+          burn_xz="${burn_img}.xz"
+          if [ ! -f "$burn_xz" ]; then
+            echo "ERROR: expected compressed file $burn_xz not found"
+            ls -la output/images || true
+            exit 1
+          fi
+          echo "Compressed -> $burn_xz"
+      
+          # 3) 推导描述文件 URL 并下载为 <burn_xz>.txt
           IMAGE_URL="${{ github.event.inputs.image_url }}"
+          # 默认推导: *.img.xz -> *.img.txt
           if [[ "$IMAGE_URL" =~ \.img\.xz$ ]]; then
             TXT_URL="${IMAGE_URL%.img.xz}.img.txt"
           else
-            TXT_URL="$IMAGE_URL.txt"
+            TXT_URL="${IMAGE_URL}.img.txt"
           fi
-          echo "尝试下载描述文件: $TXT_URL"
-          mkdir -p output/images
-          if curl -fsSL -o output/images/${image_name}.txt "$TXT_URL"; then
-            echo "描述文件下载成功: output/images/${image_name}.txt"
+      
+          # 如果你想用特定描述文件 URL，可在 workflow dispatch 时传入一个自定义输入并在此处优先使用
+          echo "Trying to download description: $TXT_URL"
+          descr_name="$(basename "$burn_xz").txt"
+          descr_path="output/images/${descr_name}"
+          if curl -fsSL -o "$descr_path" "$TXT_URL"; then
+            echo "Description downloaded: $descr_path"
           else
-            echo "Warning: 描述文件不存在或无法下载: $TXT_URL"
+            echo "Warning: description not found at $TXT_URL, removing any partial file"
+            rm -f "$descr_path" || true
           fi
-
-          # create a tar.xz bundle containing all .img.xz and the text description(s)
+      
+          # 4) 清理 output/images，只保留 .burn.img.xz 和对应的 .txt（以及可选的 sha256sum）
           cd output/images
-          shopt -s nullglob
-          imgs=( *.img.xz )
-          if [ ${#imgs[@]} -gt 0 ]; then
-            base="${image_name%.img.xz}"
-            tar -cJf "${base}.tar.xz" "${imgs[@]}" *.txt || true
-            echo "Created bundle: ${base}.tar.xz"
-          else
-            echo "No .img.xz files found to bundle"
-          fi
+          keep1="$(basename "$burn_xz")"
+          keep2="${keep1}.txt"
+          for f in *; do
+            if [ "$f" = "$keep1" ] || [ "$f" = "$keep2" ] || [ "$f" = "sha256sum" ]; then
+              # keep these (you may remove 'sha256sum' from this list if you don't want to keep it)
+              continue
+            else
+              rm -f "$f"
+            fi
+          done
+          echo "Final files in output/images:"
+          ls -la
           cd - >/dev/null || true
+      
+          # export IMAGENAME for later steps (use the compressed filename)
+          echo "IMAGENAME=$(basename "$burn_xz")" >> $GITHUB_ENV
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
