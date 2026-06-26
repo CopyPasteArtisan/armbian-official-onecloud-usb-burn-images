@@ -153,18 +153,19 @@ jobs:
           fi
           echo "Compressed -> $burn_xz"
       
-          # 3) 推导描述文件 URL 并下载为 <burn_xz>.txt
+          # 3) 推导描述文件 URL 并下载为原始的 *.img.txt 名称
           IMAGE_URL="${{ github.event.inputs.image_url }}"
           # 默认推导: *.img.xz -> *.img.txt
           if [[ "$IMAGE_URL" =~ \.img\.xz$ ]]; then
             TXT_URL="${IMAGE_URL%.img.xz}.img.txt"
+            # 保持原始的 .img.txt 文件名
+            descr_name="$(basename "$IMAGE_URL" .img.xz).img.txt"
           else
             TXT_URL="${IMAGE_URL}.img.txt"
+            descr_name="$(basename "$IMAGE_URL").txt"
           fi
-      
-          # 如果你想用特定描述文件 URL，可在 workflow dispatch 时传入一个自定义输入并在此处优先使用
+          
           echo "Trying to download description: $TXT_URL"
-          descr_name="$(basename "$burn_xz").txt"
           descr_path="output/images/${descr_name}"
           if curl -fsSL -o "$descr_path" "$TXT_URL"; then
             echo "Description downloaded: $descr_path"
@@ -172,7 +173,20 @@ jobs:
             echo "Warning: description not found at $TXT_URL, removing any partial file"
             rm -f "$descr_path" || true
           fi
-      
+          
+          # 4) 清理 output/images，只保留 .burn.img.xz 和原始的 .img.txt（以及可选的 sha256sum）
+          cd output/images
+          keep1="$(basename "$burn_xz")"
+          keep2="${descr_name}"
+          for f in *; do
+            if [ "$f" = "$keep1" ] || [ "$f" = "$keep2" ] || [ "$f" = "sha256sum" ]; then
+              # keep these
+              continue
+            else
+              rm -f "$f"
+            fi
+          done
+
           # 4) 清理 output/images，只保留 .burn.img.xz 和对应的 .txt（以及可选的 sha256sum）
           cd output/images
           keep1="$(basename "$burn_xz")"
