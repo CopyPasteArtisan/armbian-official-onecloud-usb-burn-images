@@ -41,10 +41,36 @@ jobs:
 
       - name: Download and decompress Official Armbian Image
         run: |
+          set -euo pipefail
           echo "::group::下载镜像..."
           IMAGE_URL="${{ github.event.inputs.image_url }}"
           echo "下载链接: $IMAGE_URL"
+
+          # download image
           curl -L -O "$IMAGE_URL"
+          imgfile=$(basename "$IMAGE_URL")
+          echo "downloaded: $imgfile"
+
+          # try to download accompanying .sha (sha256) file and verify
+          sha_url="$IMAGE_URL.sha"
+          echo "尝试下载 SHA 文件: $sha_url"
+          if curl -fsSL -o image.sha "$sha_url"; then
+            echo "SHA 文件下载成功: image.sha"
+            expected_hash=$(awk '{print $1}' image.sha)
+            echo "expected: $expected_hash"
+            actual_hash=$(sha256sum "$imgfile" | awk '{print $1}')
+            echo "actual:   $actual_hash"
+            if [ "$expected_hash" != "$actual_hash" ]; then
+              echo "ERROR: sha256 mismatch for $imgfile"
+              cat image.sha
+              exit 1
+            else
+              echo "SHA256 verified OK"
+            fi
+          else
+            echo "Warning: could not download $sha_url — skipping remote sha verification"
+          fi
+
           ls -la
           echo "::endgroup::"
           
@@ -90,7 +116,6 @@ jobs:
           VERIFY:rootfs:normal:rootfs.VERIFY
           EOF
 
-          # prefix=$(ls output/images/*.img | sed 's/\.img$//')
           prefix=$(find output/images -name "*.img" | head -n 1 | sed 's/\.img$//')
           burnimg=${prefix}.burn.img
           ./AmlImg pack $burnimg burn/
@@ -106,6 +131,8 @@ jobs:
 
       - name: Hash and compress images
         run: |
+          set -euo pipefail
+          # compute sha256 and compress each .img -> .img.xz
           for f in output/images/*.img; do
             sha256sum "$f" | tee -a sha256sum
             xz --threads=0 --compress "$f"
@@ -113,6 +140,34 @@ jobs:
           
           image_name=$(ls output/images | head -n 1)
           echo "IMAGENAME=$image_name" >> $GITHUB_ENV
+
+          # download remote description (.img.txt) derived from IMAGE_URL
+          IMAGE_URL="${{ github.event.inputs.image_url }}"
+          if [[ "$IMAGE_URL" =~ \.img\.xz$ ]]; then
+            TXT_URL="${IMAGE_URL%.img.xz}.img.txt"
+          else
+            TXT_URL="$IMAGE_URL.txt"
+          fi
+          echo "尝试下载描述文件: $TXT_URL"
+          mkdir -p output/images
+          if curl -fsSL -o output/images/${image_name}.txt "$TXT_URL"; then
+            echo "描述文件下载成功: output/images/${image_name}.txt"
+          else
+            echo "Warning: 描述文件不存在或无法下载: $TXT_URL"
+          fi
+
+          # create a tar.xz bundle containing all .img.xz and the text description(s)
+          cd output/images
+          shopt -s nullglob
+          imgs=( *.img.xz )
+          if [ ${#imgs[@]} -gt 0 ]; then
+            base="${image_name%.img.xz}"
+            tar -cJf "${base}.tar.xz" "${imgs[@]}" *.txt || true
+            echo "Created bundle: ${base}.tar.xz"
+          else
+            echo "No .img.xz files found to bundle"
+          fi
+          cd - >/dev/null || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
@@ -125,3 +180,4 @@ jobs:
           cat <<EOF | sed -E 's/^  //' | tee Release.md
             $(cat sha256sum | awk '{printf "%s: `%s`\n", $2, $1}')
           EOF
+
