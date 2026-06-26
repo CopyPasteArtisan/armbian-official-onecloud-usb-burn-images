@@ -173,19 +173,6 @@ jobs:
             echo "Warning: description not found at $TXT_URL, removing any partial file"
             rm -f "$descr_path" || true
           fi
-          
-          # 4) 清理 output/images，只保留 .burn.img.xz 和原始的 .img.txt（以及可选的 sha256sum）
-          cd output/images
-          keep1="$(basename "$burn_xz")"
-          keep2="${descr_name}"
-          for f in *; do
-            if [ "$f" = "$keep1" ] || [ "$f" = "$keep2" ] || [ "$f" = "sha256sum" ]; then
-              # keep these
-              continue
-            else
-              rm -f "$f"
-            fi
-          done
 
           # 4) 清理 output/images，只保留 .burn.img.xz 和对应的 .txt（以及可选的 sha256sum）
           cd output/images
