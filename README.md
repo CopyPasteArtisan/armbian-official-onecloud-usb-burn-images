@@ -2,9 +2,15 @@ Amlogic USB Burning Tool 可烧录/刷机的玩客云3/赚钱宝3 Armbian官方�
 Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 
 
-* 官方镜像站：https://archive.armbian.com/onecloud/archive/ <br>
-
-* 默认官方镜像：Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz <br>
+* 当前镜像站：[https://docs.armbian.com/Mirrors/#current-mirrors](https://docs.armbian.com/Mirrors/#current-mirrors) ，如果不可用使用其他镜像站代替
+* 各分支URL地址
+  |Content |URL |Description |
+  |---|---|---|
+  |Current images |https://rsync.armbian.com/dl |当前主流版本 |
+  |Archived images |https://rsync.armbian.com/archive |上一正式版本存档 |
+  |Very old images |https://rsync.armbian.com/oldarchive |更老的正式版本存档 |
+  |Armbian community |https://github.com/armbian/community/releases |社区版本，内核较新，支持老设备 |
+* Actions默认官方镜像：Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
 
   ```
   Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.txt	19.2 KiB	2024-11-25 00:29
@@ -34,7 +40,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
   Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz.torrent	94.5 KiB	2024-11-25 00:55
   ```
 
-* 默认用户名/密码：root/1234 <br>
+* 默认用户名/密码：root/1234
 
 * 修改主机名，包括上游DHCP列表中的名字：
   ```shell
@@ -48,7 +54,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 * 如果SSH登录后没有MOTD(Message of the Day)，Shell执行下面命令，然后重新登录:
   ```shell
   // 原因是 /etc/update-motd.d/* 文件没有执行权限，默认644
-  chmod 755 -R /etc/update-motd.d/
+  chmod 755 /etc/update-motd.d/*
 
   // 检查修改结果
   ls -lh /etc/update-motd.d/
@@ -63,7 +69,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 
 * 恢复原厂机身标签MAC地址，注意格式，MACAddress=[你的设备MAC地址]:
   ```shell
-  // Netplan
+  // 新建配置
   tee /etc/systemd/network/10-eth0.link <<-'EOF'
   [Match]
   OriginalName=eth0
