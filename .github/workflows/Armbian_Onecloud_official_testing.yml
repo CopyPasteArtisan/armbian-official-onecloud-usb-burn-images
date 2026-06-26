@@ -177,12 +177,22 @@ jobs:
           # 4) 清理 output/images，只保留 .burn.img.xz 和对应的 .txt（以及可选的 sha256sum）
           cd output/images
           keep1="$(basename "$burn_xz")"
-          keep2="${keep1}.txt"
+          keep_files=("$keep1" "sha256sum")
+          
+          # Add description file to keep list if it exists
+          if [ -f "$descr_name" ]; then
+            keep_files+=("$descr_name")
+          fi
+          
           for f in *; do
-            if [ "$f" = "$keep1" ] || [ "$f" = "$keep2" ] || [ "$f" = "sha256sum" ]; then
-              # keep these (you may remove 'sha256sum' from this list if you don't want to keep it)
-              continue
-            else
+            should_keep=false
+            for keep in "${keep_files[@]}"; do
+              if [ "$f" = "$keep" ]; then
+                should_keep=true
+                break
+              fi
+            done
+            if [ "$should_keep" = false ]; then
               rm -f "$f"
             fi
           done
@@ -192,6 +202,7 @@ jobs:
       
           # export IMAGENAME for later steps (use the compressed filename)
           echo "IMAGENAME=$(basename "$burn_xz")" >> $GITHUB_ENV
+          echo "$IMAGENAME"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
