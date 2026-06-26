@@ -132,7 +132,7 @@ jobs:
       - name: Hash and compress images
         run: |
           set -euo pipefail
-      
+          
           # 1) 找到 Generate burn image 步骤生成的 burn image（*.burn.img）
           burn_img=$(find output/images -type f -name "*.burn.img" | head -n 1 || true)
           if [ -z "$burn_img" ]; then
@@ -141,7 +141,7 @@ jobs:
             exit 1
           fi
           echo "Found burn image: $burn_img"
-      
+          
           # 2) 计算 sha256 并压缩为 .xz（xz 默认替换原文件 -> 得到 *.burn.img.xz）
           sha256sum "$burn_img" | tee -a sha256sum
           xz --threads=0 --compress "$burn_img"
@@ -152,7 +152,7 @@ jobs:
             exit 1
           fi
           echo "Compressed -> $burn_xz"
-      
+          
           # 3) 推导描述文件 URL 并下载为原始的 *.img.txt 名称
           IMAGE_URL="${{ github.event.inputs.image_url }}"
           # 默认推导: *.img.xz -> *.img.txt
@@ -173,7 +173,7 @@ jobs:
             echo "Warning: description not found at $TXT_URL, removing any partial file"
             rm -f "$descr_path" || true
           fi
-
+          
           # 4) 清理 output/images，只保留 .burn.img.xz 和对应的 .txt（以及可选的 sha256sum）
           cd output/images
           keep1="$(basename "$burn_xz")"
@@ -197,12 +197,12 @@ jobs:
             fi
           done
           echo "Final files in output/images:"
+          
           ls -la
           cd - >/dev/null || true
-      
+          
           # export IMAGENAME for later steps (use the compressed filename)
           echo "IMAGENAME=$(basename "$burn_xz")" >> $GITHUB_ENV
-          echo "$IMAGENAME"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
