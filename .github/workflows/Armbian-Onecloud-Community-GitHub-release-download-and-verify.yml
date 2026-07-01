@@ -1,12 +1,12 @@
-name: Armbian Onecloud Official Community download and verify
+name: Armbian-Onecloud-verify-official-image
 
 on:
   workflow_dispatch:
     inputs:
       image_url:
-        description: 'Armbian community releases img.xz 链接'
+        description: 'Armbian img.xz 下载链接'
         required: true
-        default: 'https://github.com/armbian/community/releases/download/26.8.0-trunk.170/Armbian_community_26.8.0-trunk.170_Onecloud_trixie_current_6.12.28_minimal.img.xz'
+        default: 'https://github.com/armbian/community/releases/download/26.2.0-trunk.904/Armbian_community_26.2.0-trunk.904_Onecloud_trixie_current_6.12.28_minimal.img.xz'
 
 env:
   SCRIPT_REPO: ${{ github.repository }}
@@ -51,67 +51,93 @@ jobs:
           imgfile=$(basename "$IMAGE_URL")
           echo "downloaded: $imgfile"
 
-          # 方案1: 尝试从原始 URL 位置下载 .sha 文件（适用于官方源）
+          # 计算本地 SHA256
+          local_sha256=$(sha256sum "$imgfile" | awk '{print $1}')
+          echo "Local SHA256: $local_sha256"
+          echo "$local_sha256  $imgfile" | tee sha256sum
+
+          # 方案1: 尝试从原始 URL 位置下载 .sha 文件
           sha_url="${IMAGE_URL}.sha"
-          echo "尝试下载 SHA 文件: $sha_url"
+          echo ""
+          echo "尝试方案1: 下载 SHA 文件 ($sha_url)"
           if curl -fsSL -o image.sha "$sha_url" 2>/dev/null; then
-            echo "SHA 文件下载成功: image.sha"
+            echo "SHA 文件下载成功"
             expected_hash=$(awk '{print $1}' image.sha)
-            echo "expected: $expected_hash"
-            actual_hash=$(sha256sum "$imgfile" | awk '{print $1}')
-            echo "actual:   $actual_hash"
-            if [ "$expected_hash" != "$actual_hash" ]; then
-              echo "ERROR: sha256 mismatch for $imgfile"
+            echo "Expected: $expected_hash"
+            echo "Actual:   $local_sha256"
+            if [ "$expected_hash" = "$local_sha256" ]; then
+              echo "SHA256 verified OK!"
+              echo "::endgroup::"
+              echo "镜像验证成功，跳过其他验证方法"
+              xz_check_passed="true"
+            else
+              echo "SHA256 mismatch!"
               cat image.sha
               exit 1
-            else
-              echo "SHA256 verified OK"
             fi
           else
-            echo "Warning: could not download $sha_url"
+            echo "SHA 文件不可用，尝试其他方法..."
+          fi
+
+          # 方案2: 从 GitHub Release API 查询对应的 checksum 文件
+          if [[ "$IMAGE_URL" =~ github.com/.*releases/download ]]; then
+            echo ""
+            echo "尝试方案2: 从 GitHub Release API 获取对应的 checksum 文件"
             
-            # 方案2: 如果是从 GitHub Release 下载，尝试从 Release API 查询信息
-            if [[ "$IMAGE_URL" =~ github.com/.*releases/download ]]; then
-              echo "尝试从 GitHub Release API 获取信息..."
+            # 提取仓库、tag 和文件名信息
+            REPO=$(echo "$IMAGE_URL" | grep -oP 'github\.com/\K[^/]+/[^/]+' || echo "")
+            TAG=$(echo "$IMAGE_URL" | grep -oP '(?<=releases/download/)[^/]+' || echo "")
+            FILENAME=$(basename "$IMAGE_URL")
+            
+            if [ -n "$REPO" ] && [ -n "$TAG" ]; then
+              echo "Repository: $REPO"
+              echo "Release Tag: $TAG"
+              echo "Image File: $FILENAME"
               
-              # 提取仓库和 tag 信息
-              REPO=$(echo "$IMAGE_URL" | grep -oP 'github\.com/\K[^/]+/[^/]+' || echo "")
-              TAG=$(echo "$IMAGE_URL" | grep -oP '(?<=releases/download/)[^/]+' || echo "")
+              # 查询 Release API - 获取所有 assets
+              echo "https://api.github.com/repos/$REPO/releases/tags/$TAG"
+              RELEASE_JSON=$(curl -s "https://api.github.com/repos/$REPO/releases/tags/$TAG")
               
-              if [ -n "$REPO" ] && [ -n "$TAG" ]; then
-                echo "Repository: $REPO, Release Tag: $TAG"
+              # 方法 A: 查找匹配的 .sha 文件（{原文件名}.sha）
+              CHECKSUM_FILE="${FILENAME}.sha"
+              echo "查找对应的 checksum 文件: $CHECKSUM_FILE"
+              
+              CHECKSUM_URL=$(echo "$RELEASE_JSON" | jq -r ".assets[] | select(.name == \"$CHECKSUM_FILE\") | .browser_download_url" | head -1)
+              
+              if [ -n "$CHECKSUM_URL" ] && [ "$CHECKSUM_URL" != "null" ]; then
+                echo "找到 checksum 文件: $CHECKSUM_URL"
+                curl -fsSL -o checksum_file "$CHECKSUM_URL"
                 
-                # 查询 Release API
-                RELEASE_JSON=$(curl -s "https://api.github.com/repos/$REPO/releases/tags/$TAG")
+                # 验证格式并对比
+                remote_sha256=$(awk '{print $1}' checksum_file)
+                echo "Remote SHA256: $remote_sha256"
                 
-                # 尝试查找 checksum 文件
-                CHECKSUM_ASSET=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test(".*sha.*|.*checksum.*|.*sum.*")) | .browser_download_url' | head -1)
-                if [ -n "$CHECKSUM_ASSET" ] && [ "$CHECKSUM_ASSET" != "null" ]; then
-                  echo "Found checksum asset: $CHECKSUM_ASSET"
-                  curl -fsSL -o checksum_file "$CHECKSUM_ASSET"
-                  
-                  # 尝试验证（支持多种格式）
-                  if grep -q "$(sha256sum "$imgfile" | awk '{print $1}')" checksum_file; then
-                    echo "SHA256 verified from Release checksum file"
-                  else
-                    echo "Checksum file found but hash not matching or different format"
-                    cat checksum_file
-                  fi
+                if [ "$remote_sha256" = "$local_sha256" ]; then
+                  echo "SHA256 verified from Release checksum file!"
+                  xz_check_passed="true"
                 else
-                  echo "No checksum files found in Release assets"
+                  echo "SHA256 mismatch between local and remote!"
+                  echo "Expected: $remote_sha256"
+                  echo "Actual:   $local_sha256"
+                  exit 1
+                fi
+              else
+                # 方法 B: 查找名称包含 'sha' 或 'checksum' 的文件，然后搜索对应的文件
+                echo "未找到精确匹配的 checksum 文件"
+                echo "查找名称模式相关的 checksum 文件..."
+                
+                CHECKSUM_FILES=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("sha|checksum|sum")) | .name')
+                if [ -z "$CHECKSUM_FILES" ]; then
+                  echo "Release 中未找到任何 checksum 文件"
+                else
+                  echo "Release 中的 checksum 文件:"
+                  echo "$CHECKSUM_FILES"
+                  echo "由于 Armbian 不提供单个文件的 checksum，跳过远程验证"
                 fi
               fi
             fi
-            
-            # 方案3: 最后手段 - 自己计算 SHA256 作为参考
-            echo ""
-            echo "计算镜像 SHA256 作为参考..."
-            actual_hash=$(sha256sum "$imgfile" | awk '{print $1}')
-            echo "Local SHA256: $actual_hash" | tee -a sha256sum
-            echo "建议验证上述 SHA256 与官方网站公布的值是否一致"
           fi
 
-          ls -la
           echo "::endgroup::"
           
           echo "::group::解压镜像..."
@@ -253,5 +279,23 @@ jobs:
       - name: Generate release informations
         run: |
           cat <<EOF | sed -E 's/^  //' | tee Release.md
-            $(cat sha256sum | awk '{printf "%s: `%s`\n", $2, $1}')
+            ## 镜像信息
+            
+            $(cat sha256sum | awk '{printf "- **%s**: `%s`\n", $2, $1}')
+            
+            ## 验证方法
+            
+            \`\`\`bash
+            sha256sum -c sha256sum
+            \`\`\`
           EOF
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.IMAGENAME }}
+          append_body: true
+          body_path: Release.md
+          files: |
+            output/images/*
