@@ -1,4 +1,4 @@
-name: Armbian-Onecloud-verify-official-image
+name: Armbian Onecloud verify official image
 
 on:
   workflow_dispatch:
