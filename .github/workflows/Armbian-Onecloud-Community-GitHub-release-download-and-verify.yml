@@ -1,10 +1,10 @@
-name: Armbian-Onecloud-verify-official-image
+name: Armbian Onecloud Community Release Download and Verify
 
 on:
   workflow_dispatch:
     inputs:
       image_url:
-        description: 'Armbian img.xz 下载链接'
+        description: 'Armbian community releases img.xz 链接'
         required: true
         default: 'https://github.com/armbian/community/releases/download/26.2.0-trunk.904/Armbian_community_26.2.0-trunk.904_Onecloud_trixie_current_6.12.28_minimal.img.xz'
 
