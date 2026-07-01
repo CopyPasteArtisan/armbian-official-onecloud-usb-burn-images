@@ -32,7 +32,8 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_ENV
           
           sudo apt-get update
-          sudo apt-get install img2simg
+          # 安装必要工具：img2simg, jq
+          sudo apt-get install -y img2simg jq
 
           ver="v0.3.1"
           echo "https://github.com/hzyitc/AmlImg/releases/download/$ver/AmlImg_${ver}_linux_amd64"
@@ -79,10 +80,10 @@ jobs:
             echo "SHA 文件不可用，尝试其他方法..."
           fi
 
-          # 方案2: 从 GitHub Release API 查询对应的 checksum 文件
+          # 方案2: 从 GitHub Release API 查询对应的 checksum 文件或 asset.digest
           if [[ "$IMAGE_URL" =~ github.com/.*releases/download ]]; then
             echo ""
-            echo "尝试方案2: 从 GitHub Release API 获取对应的 checksum 文件"
+            echo "尝试方案2: 从 GitHub Release API 获取对应的 checksum 文件或 asset.digest"
             
             # 提取仓库、tag 和文件名信息
             REPO=$(echo "$IMAGE_URL" | grep -oP 'github\.com/\K[^/]+/[^/]+' || echo "")
@@ -94,45 +95,83 @@ jobs:
               echo "Release Tag: $TAG"
               echo "Image File: $FILENAME"
               
-              # 查询 Release API - 获取所有 assets
+              # 查询 Release API - 获取所有 assets（使用 token 避免速率限制）
               echo "https://api.github.com/repos/$REPO/releases/tags/$TAG"
-              RELEASE_JSON=$(curl -s "https://api.github.com/repos/$REPO/releases/tags/$TAG")
-              
-              # 方法 A: 查找匹配的 .sha 文件（{原文件名}.sha）
-              CHECKSUM_FILE="${FILENAME}.sha"
-              echo "查找对应的 checksum 文件: $CHECKSUM_FILE"
-              
-              CHECKSUM_URL=$(echo "$RELEASE_JSON" | jq -r ".assets[] | select(.name == \"$CHECKSUM_FILE\") | .browser_download_url" | head -1)
-              
-              if [ -n "$CHECKSUM_URL" ] && [ "$CHECKSUM_URL" != "null" ]; then
-                echo "找到 checksum 文件: $CHECKSUM_URL"
-                curl -fsSL -o checksum_file "$CHECKSUM_URL"
-                
-                # 验证格式并对比
-                remote_sha256=$(awk '{print $1}' checksum_file)
-                echo "Remote SHA256: $remote_sha256"
-                
-                if [ "$remote_sha256" = "$local_sha256" ]; then
-                  echo "SHA256 verified from Release checksum file!"
-                  xz_check_passed="true"
+              RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/$REPO/releases/tags/$TAG")
+
+              # 先尝试以 browser_download_url 精确匹配 IMAGE_URL，然后回退到 name 精确匹配
+              ASSET_JSON=$(echo "$RELEASE_JSON" | jq -c --arg url "$IMAGE_URL" --arg name "$FILENAME" '
+                (.assets[] | select(.browser_download_url==$url))
+                // (.assets[] | select(.name==$name))
+                ' | head -n1 || true)
+
+              if [ -n "$ASSET_JSON" ] && [ "$ASSET_JSON" != "null" ]; then
+                echo "找到匹配的 asset（优先 browser_download_url -> name）"
+                echo "$ASSET_JSON" | jq -r '. | {id: .id, name: .name, digest: .digest, browser_download_url: .browser_download_url}'
+
+                ASSET_DIGEST=$(echo "$ASSET_JSON" | jq -r '.digest // empty' || echo "")
+                if [ -n "$ASSET_DIGEST" ]; then
+                  echo "Found asset.digest: $ASSET_DIGEST"
+                  if echo "$ASSET_DIGEST" | grep -q '^sha256:'; then
+                    remote_sha256=$(echo "$ASSET_DIGEST" | sed 's/^sha256://')
+                    echo "Remote sha256 (from digest): $remote_sha256"
+                    echo "Local sha256: $local_sha256"
+                    if [ "$remote_sha256" = "$local_sha256" ]; then
+                      echo "SHA256 verified using asset.digest!"
+                      xz_check_passed="true"
+                    else
+                      echo "ERROR: SHA256 mismatch between asset.digest and downloaded file!"
+                      echo "Expected: $remote_sha256"
+                      echo "Actual:   $local_sha256"
+                      exit 1
+                    fi
+                  else
+                    echo "asset.digest 存在但不是 sha256 前缀，跳过该字段: $ASSET_DIGEST"
+                  fi
                 else
-                  echo "SHA256 mismatch between local and remote!"
-                  echo "Expected: $remote_sha256"
-                  echo "Actual:   $local_sha256"
-                  exit 1
+                  echo "asset.digest 未包含在该 asset 中或为空，继续尝试查找 release 中的 checksum 文件或 .sha 资源..."
                 fi
               else
-                # 方法 B: 查找名称包含 'sha' 或 'checksum' 的文件，然后搜索对应的文件
-                echo "未找到精确匹配的 checksum 文件"
-                echo "查找名称模式相关的 checksum 文件..."
+                echo "没有找到与下载链接直接匹配的 asset（按 browser_download_url / name）"
+              fi
+
+              # 如果 asset.digest 未通过验证或不存在，则继续尝试查找 checksum 文件（同名 .sha 或包含 sha/checksum/sum 的资产）
+              if [ "${xz_check_passed:-}" != "true" ]; then
+                # 方法 A: 查找匹配的 .sha 文件（{原文件名}.sha）
+                CHECKSUM_FILE="${FILENAME}.sha"
+                echo "查找对应的 checksum 文件: $CHECKSUM_FILE"
                 
-                CHECKSUM_FILES=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("sha|checksum|sum")) | .name')
-                if [ -z "$CHECKSUM_FILES" ]; then
-                  echo "Release 中未找到任何 checksum 文件"
+                CHECKSUM_URL=$(echo "$RELEASE_JSON" | jq -r --arg name "$CHECKSUM_FILE" '.assets[] | select(.name == $name) | .browser_download_url' | head -1 || echo "")
+                
+                if [ -n "$CHECKSUM_URL" ] && [ "$CHECKSUM_URL" != "null" ]; then
+                  echo "找到 checksum 文件: $CHECKSUM_URL"
+                  curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o checksum_file "$CHECKSUM_URL"
+                  
+                  # 验证格式并对比
+                  remote_sha256=$(awk '{print $1}' checksum_file)
+                  echo "Remote SHA256: $remote_sha256"
+                  
+                  if [ "$remote_sha256" = "$local_sha256" ]; then
+                    echo "SHA256 verified from Release checksum file!"
+                    xz_check_passed="true"
+                  else
+                    echo "SHA256 mismatch between local and remote!"
+                    echo "Expected: $remote_sha256"
+                    echo "Actual:   $local_sha256"
+                    exit 1
+                  fi
                 else
-                  echo "Release 中的 checksum 文件:"
-                  echo "$CHECKSUM_FILES"
-                  echo "由于 Armbian 不提供单个文件的 checksum，跳过远程验证"
+                  # 方法 B: 查找名称包含 'sha' 或 'checksum' 的文件，然后搜索对应的文件
+                  echo "未找到精确匹配的 checksum 文件，查找名称模式相关的 checksum 文件..."
+                  
+                  CHECKSUM_FILES=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("sha|checksum|sum")) | .name' || echo "")
+                  if [ -z "$CHECKSUM_FILES" ]; then
+                    echo "Release 中未找到任何 checksum 文件"
+                  else
+                    echo "Release 中的 checksum 文件列表（部分）:"
+                    echo "$CHECKSUM_FILES" | sed -n '1,50p'
+                    echo "注意：Armbian 的 release 可能没有单文件 checksum，或使用集中式 checksum 列表，无法直接从单个 asset 得到该文件的哈希，跳过远程验证。"
+                  fi
                 fi
               fi
             fi
