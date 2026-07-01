@@ -221,7 +221,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
-	  name: ${{ env.IMAGENAME }}
+          name: ${{ env.IMAGENAME }}
           append_body: true
           body_path: Release.md
           files: |
