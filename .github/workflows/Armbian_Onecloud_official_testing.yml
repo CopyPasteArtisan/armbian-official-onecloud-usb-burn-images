@@ -1,0 +1,218 @@
+name: Armbian Onecloud official Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_url:
+        description: 'Download URL of Armbian img.xz'
+        required: true
+        default: 'https://armbian.lv.auroradev.org/dl/onecloud/archive/Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz'
+
+env:
+  SCRIPT_REPO: ${{ github.repository }}
+  SCRIPT_REF: ${{ github.ref_name }}
+  UBOOT_REPO: hzyitc/u-boot
+  UBOOT_RELEASE: latest
+  UBOOT_BURNIMG: eMMC.burn.img
+  UBOOT_TAG: build-20221028-0940
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build burn.img
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Install Dependents
+        run: |
+          TIME="$(curl https://api.github.com/repos/${SCRIPT_REPO}/actions/runs/${GITHUB_RUN_ID} | jq -r .created_at)"
+          TAG="CI-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S-%Z')"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          
+          sudo apt-get update
+          sudo apt-get install img2simg
+
+          ver="v0.3.1"
+          echo "https://github.com/hzyitc/AmlImg/releases/download/$ver/AmlImg_${ver}_linux_amd64"
+          curl -L -o ./AmlImg https://github.com/hzyitc/AmlImg/releases/download/$ver/AmlImg_${ver}_linux_amd64
+          chmod +x ./AmlImg
+
+      - name: Download and decompress Official Armbian Image
+        run: |
+          set -euo pipefail
+          echo "::group::下载镜像..."
+          IMAGE_URL="${{ github.event.inputs.image_url }}"
+          echo "下载链接: $IMAGE_URL"
+
+          # download image
+          curl -L -O "$IMAGE_URL"
+          imgfile=$(basename "$IMAGE_URL")
+          echo "downloaded: $imgfile"
+
+          # try to download accompanying .sha (sha256) file and verify
+          sha_url="$IMAGE_URL.sha"
+          echo "尝试下载 SHA 文件: $sha_url"
+          if curl -fsSL -o image.sha "$sha_url"; then
+            echo "SHA 文件下载成功: image.sha"
+            expected_hash=$(awk '{print $1}' image.sha)
+            echo "expected: $expected_hash"
+            actual_hash=$(sha256sum "$imgfile" | awk '{print $1}')
+            echo "actual:   $actual_hash"
+            if [ "$expected_hash" != "$actual_hash" ]; then
+              echo "ERROR: sha256 mismatch for $imgfile"
+              cat image.sha
+              exit 1
+            else
+              echo "SHA256 verified OK"
+            fi
+          else
+            echo "Warning: could not download $sha_url — skipping remote sha verification"
+          fi
+
+          ls -la
+          echo "::endgroup::"
+          
+          echo "::group::解压镜像..."
+          xz -d *.img.xz
+
+          mkdir -p output/images
+          mv *.img output/images
+          ls -la output/images/*.img
+          echo "::endgroup::"
+
+      - name: Download and unpack the latest u-boot
+        run: |
+          echo "::group::Download"
+          echo "https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}"
+          curl -L -o ./uboot.img https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}
+          echo "::endgroup::"
+
+          echo "::group::Unpack"
+          mkdir -p burn
+          ./AmlImg unpack ./uboot.img burn/
+          echo "::endgroup::"
+
+      - name: Extract boot and rootfs partitions
+        run: |
+          diskimg=$(find output/images -name "*.img" | head -n 1)
+          echo "disk image: $diskimg"
+          loop=$(sudo losetup --find --show --partscan $diskimg)
+          sudo img2simg ${loop}p1 burn/boot.simg
+          sudo img2simg ${loop}p2 burn/rootfs.simg
+          sudo losetup -d $loop
+          sudo chown $(id -u):$(id -g) -R burn/
+
+      - name: Generate burn image
+        run: |
+          echo -n "sha1sum $(sha1sum burn/boot.simg | awk '{print $1}')" >burn/boot.VERIFY
+          echo -n "sha1sum $(sha1sum burn/rootfs.simg | awk '{print $1}')" >burn/rootfs.VERIFY
+
+          cat <<EOF >>burn/commands.txt
+          PARTITION:boot:sparse:boot.simg
+          VERIFY:boot:normal:boot.VERIFY
+          PARTITION:rootfs:sparse:rootfs.simg
+          VERIFY:rootfs:normal:rootfs.VERIFY
+          EOF
+
+          prefix=$(find output/images -name "*.img" | head -n 1 | sed 's/\.img$//')
+          burnimg=${prefix}.burn.img
+          ./AmlImg pack $burnimg burn/
+          
+          for f in output/images/*.img; do
+              case "$f" in
+                  *.burn.img) continue ;;
+                  *) rm -f "$f" ;;
+              esac
+          done
+
+          ls -la output/images
+
+      - name: Hash and compress images
+        run: |
+          set -euo pipefail
+          
+          # 1) 找到 Generate burn image 步骤生成的 burn image（*.burn.img）
+          burn_img=$(find output/images -type f -name "*.burn.img" | head -n 1 || true)
+          if [ -z "$burn_img" ]; then
+            echo "ERROR: no *.burn.img found in output/images (expected from Generate burn image step)"
+            ls -la output/images || true
+            exit 1
+          fi
+          echo "Found burn image: $burn_img"
+          
+          # 2) 计算 sha256 并压缩为 .xz（xz 默认替换原文件 -> 得到 *.burn.img.xz）
+          sha256sum "$burn_img" | tee -a sha256sum
+          xz --threads=0 --compress "$burn_img"
+          burn_xz="${burn_img}.xz"
+          if [ ! -f "$burn_xz" ]; then
+            echo "ERROR: expected compressed file $burn_xz not found"
+            ls -la output/images || true
+            exit 1
+          fi
+          echo "Compressed -> $burn_xz"
+          
+          # 3) 推导描述文件 URL 并下载为原始的 *.img.txt 名称
+          IMAGE_URL="${{ github.event.inputs.image_url }}"
+          # 默认推导: *.img.xz -> *.img.txt
+          if [[ "$IMAGE_URL" =~ \.img\.xz$ ]]; then
+            TXT_URL="${IMAGE_URL%.img.xz}.img.txt"
+            # 保持原始的 .img.txt 文件名
+            descr_name="$(basename "$IMAGE_URL" .img.xz).img.txt"
+          else
+            TXT_URL="${IMAGE_URL}.img.txt"
+            descr_name="$(basename "$IMAGE_URL").txt"
+          fi
+          
+          echo "Trying to download description: $TXT_URL"
+          descr_path="output/images/${descr_name}"
+          if curl -fsSL -o "$descr_path" "$TXT_URL"; then
+            echo "Description downloaded: $descr_path"
+          else
+            echo "Warning: description not found at $TXT_URL, removing any partial file"
+            rm -f "$descr_path" || true
+          fi
+          
+          # 4) 清理 output/images，只保留 .burn.img.xz 和对应的 .txt（以及可选的 sha256sum）
+          cd output/images
+          keep1="$(basename "$burn_xz")"
+          keep_files=("$keep1" "sha256sum")
+          
+          # Add description file to keep list if it exists
+          if [ -f "$descr_name" ]; then
+            keep_files+=("$descr_name")
+          fi
+          
+          for f in *; do
+            should_keep=false
+            for keep in "${keep_files[@]}"; do
+              if [ "$f" = "$keep" ]; then
+                should_keep=true
+                break
+              fi
+            done
+            if [ "$should_keep" = false ]; then
+              rm -f "$f"
+            fi
+          done
+          echo "Final files in output/images:"
+          
+          ls -la
+          cd - >/dev/null || true
+          
+          # export IMAGENAME for later steps (use the compressed filename)
+          echo "IMAGENAME=$(basename "$burn_xz")" >> $GITHUB_ENV
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ env.IMAGENAME }}_${{ env.TAG }}
+          path: output/images/*
+
+      - name: Generate release informations
+        run: |
+          cat <<EOF | sed -E 's/^  //' | tee Release.md
+            $(cat sha256sum | awk '{printf "%s: `%s`\n", $2, $1}')
+          EOF
+

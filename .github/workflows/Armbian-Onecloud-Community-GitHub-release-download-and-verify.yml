@@ -1,0 +1,340 @@
+name: Armbian Onecloud Community Release Download and Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_url:
+        description: 'Armbian community releases img.xz 链接'
+        required: true
+        default: 'https://github.com/armbian/community/releases/download/26.2.0-trunk.904/Armbian_community_26.2.0-trunk.904_Onecloud_trixie_current_6.12.28_minimal.img.xz'
+
+env:
+  SCRIPT_REPO: ${{ github.repository }}
+  SCRIPT_REF: ${{ github.ref_name }}
+  UBOOT_REPO: hzyitc/u-boot
+  UBOOT_RELEASE: latest
+  UBOOT_BURNIMG: eMMC.burn.img
+  UBOOT_TAG: build-20221028-0940
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build burn.img
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Install Dependents
+        run: |
+          TIME="$(curl https://api.github.com/repos/${SCRIPT_REPO}/actions/runs/${GITHUB_RUN_ID} | jq -r .created_at)"
+          TAG="CI-$(date -d "${TIME}" -u +'%Y%m%d-%H%M%S-%Z')"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          
+          sudo apt-get update
+          # 安装必要工具：img2simg, jq
+          sudo apt-get install -y img2simg jq
+
+          ver="v0.3.1"
+          echo "https://github.com/hzyitc/AmlImg/releases/download/$ver/AmlImg_${ver}_linux_amd64"
+          curl -L -o ./AmlImg https://github.com/hzyitc/AmlImg/releases/download/$ver/AmlImg_${ver}_linux_amd64
+          chmod +x ./AmlImg
+
+      - name: Download and decompress Official Armbian Image
+        run: |
+          set -euo pipefail
+          echo "::group::下载镜像..."
+          IMAGE_URL="${{ github.event.inputs.image_url }}"
+          echo "下载链接: $IMAGE_URL"
+
+          # 下载镜像
+          curl -L -O "$IMAGE_URL"
+          imgfile=$(basename "$IMAGE_URL")
+          echo "downloaded: $imgfile"
+
+          # 计算本地 SHA256
+          local_sha256=$(sha256sum "$imgfile" | awk '{print $1}')
+          echo "Local SHA256: $local_sha256"
+          echo "$local_sha256  $imgfile" | tee sha256sum
+
+          # 方案1: 尝试从原始 URL 位置下载 .sha 文件
+          sha_url="${IMAGE_URL}.sha"
+          echo ""
+          echo "尝试方案1: 下载 SHA 文件 ($sha_url)"
+          if curl -fsSL -o image.sha "$sha_url" 2>/dev/null; then
+            echo "SHA 文件下载成功"
+            expected_hash=$(awk '{print $1}' image.sha)
+            echo "Expected: $expected_hash"
+            echo "Actual:   $local_sha256"
+            if [ "$expected_hash" = "$local_sha256" ]; then
+              echo "SHA256 verified OK!"
+              echo "::endgroup::"
+              echo "镜像验证成功，跳过其他验证方法"
+              xz_check_passed="true"
+            else
+              echo "SHA256 mismatch!"
+              cat image.sha
+              exit 1
+            fi
+          else
+            echo "SHA 文件不可用，尝试其他方法..."
+          fi
+
+          # 方案2: 从 GitHub Release API 查询对应的 checksum 文件或 asset.digest
+          if [[ "$IMAGE_URL" =~ github.com/.*releases/download ]]; then
+            echo ""
+            echo "尝试方案2: 从 GitHub Release API 获取对应的 checksum 文件或 asset.digest"
+            
+            # 提取仓库、tag 和文件名信息
+            REPO=$(echo "$IMAGE_URL" | grep -oP 'github\.com/\K[^/]+/[^/]+' || echo "")
+            TAG=$(echo "$IMAGE_URL" | grep -oP '(?<=releases/download/)[^/]+' || echo "")
+            FILENAME=$(basename "$IMAGE_URL")
+            
+            if [ -n "$REPO" ] && [ -n "$TAG" ]; then
+              echo "Repository: $REPO"
+              echo "Release Tag: $TAG"
+              echo "Image File: $FILENAME"
+              
+              # 查询 Release API - 获取所有 assets（使用 token 避免速率限制）
+              echo "https://api.github.com/repos/$REPO/releases/tags/$TAG"
+              RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/$REPO/releases/tags/$TAG")
+
+              # 先尝试以 browser_download_url 精确匹配 IMAGE_URL，然后回退到 name 精确匹配
+              ASSET_JSON=$(echo "$RELEASE_JSON" | jq -c --arg url "$IMAGE_URL" --arg name "$FILENAME" '
+                (.assets[] | select(.browser_download_url==$url))
+                // (.assets[] | select(.name==$name))
+                ' | head -n1 || true)
+
+              if [ -n "$ASSET_JSON" ] && [ "$ASSET_JSON" != "null" ]; then
+                echo "找到匹配的 asset（优先 browser_download_url -> name）"
+                echo "$ASSET_JSON" | jq -r '. | {id: .id, name: .name, digest: .digest, browser_download_url: .browser_download_url}'
+
+                ASSET_DIGEST=$(echo "$ASSET_JSON" | jq -r '.digest // empty' || echo "")
+                if [ -n "$ASSET_DIGEST" ]; then
+                  echo "Found asset.digest: $ASSET_DIGEST"
+                  if echo "$ASSET_DIGEST" | grep -q '^sha256:'; then
+                    remote_sha256=$(echo "$ASSET_DIGEST" | sed 's/^sha256://')
+                    echo "Remote sha256 (from digest): $remote_sha256"
+                    echo "Local sha256: $local_sha256"
+                    if [ "$remote_sha256" = "$local_sha256" ]; then
+                      echo "SHA256 verified using asset.digest!"
+                      xz_check_passed="true"
+                    else
+                      echo "ERROR: SHA256 mismatch between asset.digest and downloaded file!"
+                      echo "Expected: $remote_sha256"
+                      echo "Actual:   $local_sha256"
+                      exit 1
+                    fi
+                  else
+                    echo "asset.digest 存在但不是 sha256 前缀，跳过该字段: $ASSET_DIGEST"
+                  fi
+                else
+                  echo "asset.digest 未包含在该 asset 中或为空，继续尝试查找 release 中的 checksum 文件或 .sha 资源..."
+                fi
+              else
+                echo "没有找到与下载链接直接匹配的 asset（按 browser_download_url / name）"
+              fi
+
+              # 如果 asset.digest 未通过验证或不存在，则继续尝试查找 checksum 文件（同名 .sha 或包含 sha/checksum/sum 的资产）
+              if [ "${xz_check_passed:-}" != "true" ]; then
+                # 方法 A: 查找匹配的 .sha 文件（{原文件名}.sha）
+                CHECKSUM_FILE="${FILENAME}.sha"
+                echo "查找对应的 checksum 文件: $CHECKSUM_FILE"
+                
+                CHECKSUM_URL=$(echo "$RELEASE_JSON" | jq -r --arg name "$CHECKSUM_FILE" '.assets[] | select(.name == $name) | .browser_download_url' | head -1 || echo "")
+                
+                if [ -n "$CHECKSUM_URL" ] && [ "$CHECKSUM_URL" != "null" ]; then
+                  echo "找到 checksum 文件: $CHECKSUM_URL"
+                  curl -fsSL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o checksum_file "$CHECKSUM_URL"
+                  
+                  # 验证格式并对比
+                  remote_sha256=$(awk '{print $1}' checksum_file)
+                  echo "Remote SHA256: $remote_sha256"
+                  
+                  if [ "$remote_sha256" = "$local_sha256" ]; then
+                    echo "SHA256 verified from Release checksum file!"
+                    xz_check_passed="true"
+                  else
+                    echo "SHA256 mismatch between local and remote!"
+                    echo "Expected: $remote_sha256"
+                    echo "Actual:   $local_sha256"
+                    exit 1
+                  fi
+                else
+                  # 方法 B: 查找名称包含 'sha' 或 'checksum' 的文件，然后搜索对应的文件
+                  echo "未找到精确匹配的 checksum 文件，查找名称模式相关的 checksum 文件..."
+                  
+                  CHECKSUM_FILES=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("sha|checksum|sum")) | .name' || echo "")
+                  if [ -z "$CHECKSUM_FILES" ]; then
+                    echo "Release 中未找到任何 checksum 文件"
+                  else
+                    echo "Release 中的 checksum 文件列表（部分）:"
+                    echo "$CHECKSUM_FILES" | sed -n '1,50p'
+                    echo "注意：Armbian 的 release 可能没有单文件 checksum，或使用集中式 checksum 列表，无法直接从单个 asset 得到该文件的哈希，跳过远程验证。"
+                  fi
+                fi
+              fi
+            fi
+          fi
+
+          echo "::endgroup::"
+          
+          echo "::group::解压镜像..."
+          xz -d *.img.xz
+
+          mkdir -p output/images
+          mv *.img output/images
+          ls -la output/images/*.img
+          echo "::endgroup::"
+
+      - name: Download and unpack the latest u-boot
+        run: |
+          echo "::group::Download"
+          echo "https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}"
+          curl -L -o ./uboot.img https://github.com/${UBOOT_REPO}/releases/download/${UBOOT_TAG}/${UBOOT_BURNIMG}
+          echo "::endgroup::"
+
+          echo "::group::Unpack"
+          mkdir -p burn
+          ./AmlImg unpack ./uboot.img burn/
+          echo "::endgroup::"
+
+      - name: Extract boot and rootfs partitions
+        run: |
+          diskimg=$(find output/images -name "*.img" | head -n 1)
+          echo "disk image: $diskimg"
+          loop=$(sudo losetup --find --show --partscan $diskimg)
+          sudo img2simg ${loop}p1 burn/boot.simg
+          sudo img2simg ${loop}p2 burn/rootfs.simg
+          sudo losetup -d $loop
+          sudo chown $(id -u):$(id -g) -R burn/
+
+      - name: Generate burn image
+        run: |
+          echo -n "sha1sum $(sha1sum burn/boot.simg | awk '{print $1}')" >burn/boot.VERIFY
+          echo -n "sha1sum $(sha1sum burn/rootfs.simg | awk '{print $1}')" >burn/rootfs.VERIFY
+
+          cat <<EOF >>burn/commands.txt
+          PARTITION:boot:sparse:boot.simg
+          VERIFY:boot:normal:boot.VERIFY
+          PARTITION:rootfs:sparse:rootfs.simg
+          VERIFY:rootfs:normal:rootfs.VERIFY
+          EOF
+
+          prefix=$(find output/images -name "*.img" | head -n 1 | sed 's/\.img$//')
+          burnimg=${prefix}.burn.img
+          ./AmlImg pack $burnimg burn/
+          
+          for f in output/images/*.img; do
+              case "$f" in
+                  *.burn.img) continue ;;
+                  *) rm -f "$f" ;;
+              esac
+          done
+
+          ls -la output/images
+
+      - name: Hash and compress images
+        run: |
+          set -euo pipefail
+          
+          # 1) 找到 Generate burn image 步骤生成的 burn image（*.burn.img）
+          burn_img=$(find output/images -type f -name "*.burn.img" | head -n 1 || true)
+          if [ -z "$burn_img" ]; then
+            echo "ERROR: no *.burn.img found in output/images (expected from Generate burn image step)"
+            ls -la output/images || true
+            exit 1
+          fi
+          echo "Found burn image: $burn_img"
+          
+          # 2) 计算 sha256 并压缩为 .xz（xz 默认替换原文件 -> 得到 *.burn.img.xz）
+          sha256sum "$burn_img" | tee -a sha256sum
+          xz --threads=0 --compress "$burn_img"
+          burn_xz="${burn_img}.xz"
+          if [ ! -f "$burn_xz" ]; then
+            echo "ERROR: expected compressed file $burn_xz not found"
+            ls -la output/images || true
+            exit 1
+          fi
+          echo "Compressed -> $burn_xz"
+          
+          # 3) 推导描述文件 URL 并下载为原始的 *.img.txt 名称
+          IMAGE_URL="${{ github.event.inputs.image_url }}"
+          # 默认推导: *.img.xz -> *.img.txt
+          if [[ "$IMAGE_URL" =~ \.img\.xz$ ]]; then
+            TXT_URL="${IMAGE_URL%.img.xz}.img.txt"
+            # 保持原始的 .img.txt 文件名
+            descr_name="$(basename "$IMAGE_URL" .img.xz).img.txt"
+          else
+            TXT_URL="${IMAGE_URL}.img.txt"
+            descr_name="$(basename "$IMAGE_URL").txt"
+          fi
+          
+          echo "Trying to download description: $TXT_URL"
+          descr_path="output/images/${descr_name}"
+          if curl -fsSL -o "$descr_path" "$TXT_URL" 2>/dev/null; then
+            echo "Description downloaded: $descr_path"
+          else
+            echo "Warning: description not found at $TXT_URL"
+            rm -f "$descr_path" || true
+          fi
+          
+          # 4) 清理 output/images，只保留 .burn.img.xz 和对应的 .txt（以及可选的 sha256sum）
+          cd output/images
+          keep1="$(basename "$burn_xz")"
+          keep_files=("$keep1" "sha256sum")
+          
+          # Add description file to keep list if it exists
+          if [ -f "$descr_name" ]; then
+            keep_files+=("$descr_name")
+          fi
+          
+          for f in *; do
+            should_keep=false
+            for keep in "${keep_files[@]}"; do
+              if [ "$f" = "$keep" ]; then
+                should_keep=true
+                break
+              fi
+            done
+            if [ "$should_keep" = false ]; then
+              rm -f "$f"
+            fi
+          done
+          echo "Final files in output/images:"
+          
+          ls -la
+          cd - >/dev/null || true
+          
+          # export IMAGENAME for later steps (use the compressed filename)
+          echo "IMAGENAME=$(basename "$burn_xz")" >> $GITHUB_ENV
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ env.IMAGENAME }}-${{ env.TAG }}
+          path: output/images/*
+
+      - name: Generate release informations
+        run: |
+          cat <<EOF | sed -E 's/^  //' | tee Release.md
+            ## 镜像信息
+            
+            $(cat sha256sum | awk '{printf "- **%s**: `%s`\n", $2, $1}')
+            
+            ## 验证方法
+            
+            \`\`\`bash
+            sha256sum -c sha256sum
+            \`\`\`
+          EOF
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.IMAGENAME }}
+          append_body: true
+          body_path: Release.md
+          files: |
+            output/images/*
