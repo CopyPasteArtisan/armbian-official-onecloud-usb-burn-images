@@ -11,33 +11,21 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
   |Very old images |https://rsync.armbian.com/oldarchive |更老的正式版本存档 |
   |Armbian community |https://github.com/armbian/community/releases |社区版本，内核较新，支持老设备 |
 * Actions默认官方镜像：Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
+* Actions工作流程参考了 https://github.com/hzyitc/armbian-onecloud 项目，感谢@hzyitc
+* 目前有以下官方img.xz打包的线刷包，并且跟随Armbian官方更新
 
   ```
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.txt	19.2 KiB	2024-11-25 00:29
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz	213.9 MiB	2024-11-25 00:37
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.asc	833 B	2024-11-25 00:37
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.sha	187 B	2024-11-25 00:37
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz.torrent	24.8 KiB	2024-11-25 00:37
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.txt	19.2 KiB	2024-11-25 00:40
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz	1.1 GiB	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.asc	833 B	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.sha	192 B	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_xfce_desktop.img.xz.torrent	97.0 KiB	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.txt	19.1 KiB	2024-11-25 00:42
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz	385.4 MiB	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz.asc	833 B	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz.sha	164 B	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43.img.xz.torrent	37.8 KiB	2024-11-25 00:45
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.txt	19.1 KiB	2024-11-25 00:33
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz	208.6 MiB	2024-11-25 00:34
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz.asc	833 B	2024-11-25 00:34
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz.sha	172 B	2024-11-25 00:34
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz.torrent	24.3 KiB	2024-11-25 00:34
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.txt	19.2 KiB	2024-11-25 00:36
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz	1.1 GiB	2024-11-25 00:55
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz.asc	833 B	2024-11-25 00:55
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz.sha	189 B	2024-11-25 00:55
-  Armbian_24.11.1_Onecloud_noble_current_6.6.43_xfce_desktop.img.xz.torrent	94.5 KiB	2024-11-25 00:55
+  Armbian_23.11.1_Onecloud_jammy_current_6.1.63_minimal.img.xz
+  Armbian_23.11.1_Onecloud_bookworm_current_6.1.63_minimal.img.xz
+  Armbian_24.8.1_Onecloud_noble_current_6.6.43_minimal.img.xz
+  Armbian_24.8.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
+  Armbian_24.11.1_Onecloud_noble_current_6.6.43_minimal.img.xz
+  Armbian_24.11.1_Onecloud_bookworm_current_6.6.43_minimal.img.xz
+  Armbian_community_26.2.0-trunk.904_Onecloud *
+  Armbian_community_26.8.0-trunk.121_Onecloud *
+  Armbian_community_26.8.0-trunk.170_Onecloud *
+  Armbian_community_26.8.0-trunk.359_Onecloud *
+  Armbian_community_26.8.0-trunk.413_Onecloud *
   ```
 
 * 默认用户名/密码：root/1234
@@ -67,9 +55,9 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
   echo "none" > /sys/class/leds/onecloud\:blue\:alive/trigger && echo "default-on" > /sys/class/leds/onecloud\:green\:alive/trigger && echo "none" > /sys/class/leds/onecloud\:red\:alive/trigger
   ```
 
-* 恢复原厂机身标签MAC地址，注意格式，MACAddress=[你的设备MAC地址]:
+* 恢复原厂主板标签上的MAC地址，注意格式，MACAddress=[你的设备MAC地址]:
   ```shell
-  // 新建配置
+  // 适用于Armbian_24.11.1，它没有使用nmcli管理，Armbian_23.11.1不适用以下步骤
   tee /etc/systemd/network/10-eth0.link <<-'EOF'
   [Match]
   OriginalName=eth0
@@ -79,10 +67,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
   MACAddressPolicy=none
   EOF
   
-  // 
-  udevadm control --reload && udevadm trigger
-  
-  // 如果没有生效，一般重启生效
+  // 重启生效
   init 6
   
   // 或
