@@ -1,7 +1,10 @@
-Amlogic USB Burning Tool 可烧录/刷机的玩客云3/赚钱宝3 Armbian官方镜像，官方镜像默认写入USB/SD卡，现在可以直接写入eMMC启动 <br>
-Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
+# 仓库/项目简介
+  Amlogic USB Burning Tool 可烧录/刷机的玩客云3/赚钱宝3 Armbian官方镜像，官方镜像默认写入USB/SD卡，现在可以直接写入eMMC启动 <br>
+  Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 
-
+## 线刷包的刷机问题
+  如果AMD平台笔记本/台式机用 Amlogic USB Burning Tool 刷入镜像时报错，换Intel平台的笔记本/台式机再刷机。这是USB口兼容性问题，我没试过用USB转接器/拓展坞能不能解决这个问题，在没有可替代的笔记本/台式机时你可以尝试。
+## Armbian的相关信息
 * 当前镜像站：[https://docs.armbian.com/Mirrors/#current-mirrors](https://docs.armbian.com/Mirrors/#current-mirrors) ，如果不可用使用其他镜像站代替
 * 各分支URL地址
   |Content |URL |Description |
@@ -39,7 +42,7 @@ Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
   hostnamectl set-hostname WS1608-006220 && sudo sed -i 's/\bonecloud\b/WS1608-006220/g' /etc/hosts && grep WS1608 /etc/hosts
   ```
 
-* 如果SSH登录后没有MOTD(Message of the Day)，Shell执行下面命令，然后重新登录:
+* 如果SSH登录后没有MOTD (Message of the Day) ，Shell执行下面命令，然后重新登录:
   ```shell
   // 原因是 /etc/update-motd.d/* 文件没有执行权限，默认644
   chmod 755 /etc/update-motd.d/*
