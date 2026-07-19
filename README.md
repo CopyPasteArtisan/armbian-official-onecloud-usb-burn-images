@@ -2,10 +2,17 @@
   Amlogic USB Burning Tool 可烧录/刷机的玩客云3/赚钱宝3 Armbian官方镜像，官方镜像默认写入USB/SD卡，现在可以直接写入eMMC启动 <br>
   Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 
-## 线刷包的刷机问题
+  <img alt="OneCloud running Armbian Linux 6 6 43-current-meson--Ubuntu stable (noble)" src="https://raw.githubusercontent.com/CopyPasteArtisan/armbian-official-onecloud-usb-burn-images/refs/heads/main/img/Xshell_Zz0XSVYmAb-1.png" /> <br>
+
+## 线刷包报错问题
   * 如果AMD平台笔记本/台式机用 Amlogic USB Burning Tool 刷入镜像时在1%处报错，无论插USB 2.0 USB 3.0端口。换Intel平台的笔记本/台式机再刷机。这是USB口兼容性问题，或者是USB控制器的差异 <br>
-  * 我没试过用USB 2.0转接器/拓展坞能不能解决这个问题，在没有可替代的笔记本/台式机时你可以尝试 <br>
+    ```
+    1% [0x10102002]Romcode/初始化DDR/初始化寄存器/USB控制命令出错
+    [HUBx-x][Err]--[0x10102002]Romcode/初始化DDR/初始化寄存器/USB控制命令出错
+    ```
     <img src=https://raw.githubusercontent.com/CopyPasteArtisan/armbian-official-onecloud-usb-burn-images/refs/heads/main/img/Amlogic%20USB%20Burning%20Tool%20v2.2.4_AMD_USB2.0_2026-07-19_19-21-19.png />
+  * 我没试过用USB 2.0转接器/拓展坞能不能解决这个问题，在没有可替代的笔记本/台式机时你可以尝试 <br>
+    
 ## Armbian的相关信息
 * 当前镜像站：[https://docs.armbian.com/Mirrors/#current-mirrors](https://docs.armbian.com/Mirrors/#current-mirrors) ，如果不可用使用其他镜像站代替
 * 各分支URL地址
@@ -52,8 +59,7 @@
   // 检查修改结果
   ls -lh /etc/update-motd.d/
   ```
-  <img width="792" height="503" alt="OneCloud running Armbian Linux 6 6 43-current-meson--Ubuntu stable (noble)" src="https://github.com/user-attachments/assets/6815ef7d-2e68-4ec4-b76b-2e2798051eef" /> <br>
-
+  
 * 默认红色LED灯，改为绿色:
   ```shell
   // none为关闭，default-on为常亮
@@ -62,7 +68,7 @@
 
 * 恢复原厂主板标签上的MAC地址，注意格式，MACAddress=[你的设备MAC地址]:
   ```shell
-  // 适用于Armbian_24.11.1，它没有使用nmcli管理，Armbian_23.11.1不适用以下步骤
+  // 适用于Armbian_24.11.1，Armbian_23.11.1不适用以下步骤，它使用nmcli管理
   tee /etc/systemd/network/10-eth0.link <<-'EOF'
   [Match]
   OriginalName=eth0
@@ -77,6 +83,47 @@
   
   // 或
   reboot
+  
+
+  // 适用于Armbian_23.11.1，nmcli查看网络详情
+  nmcli connection show
+  
+  NAME                UUID                                  TYPE      DEVICE 
+  Wired connection 1  91d281cd-c62b-33ff-935d-7ca79f27ff40  ethernet  eth0
+  
+  // 修改成你的MAC地址
+  nmcli connection modify "Wired connection 1" 802-3-ethernet.cloned-mac-address 00:22:6D:65:E2:DD
+  
+  // 查看配置文件
+  cat /etc/NetworkManager/system-connections/Wired\ connection\ 1.nmconnection
+  
+  [connection]
+  id=Wired connection 1
+  uuid=b0a941f8-9771-30ab-92b5-7e77882e34e6
+  type=ethernet
+  autoconnect-priority=-999
+  interface-name=eth0
+  timestamp=1701306574
+  
+  [ethernet]
+  cloned-mac-address=00:22:6D:65:E2:DD
+  
+  [ipv4]
+  method=auto
+  
+  [ipv6]
+  addr-gen-mode=default
+  method=auto
+  
+  [proxy]
+  
+  
+  // 重启生效
+  init 6
+  
+  // 或
+  reboot
+
   ```
 * 其他信息：
 
