@@ -3,7 +3,9 @@
   Generate OneCloud (WS1608) Armbian images for Amlogic USB Burning Tool <br>
 
 ## 线刷包的刷机问题
-  如果AMD平台笔记本/台式机用 Amlogic USB Burning Tool 刷入镜像时报错，换Intel平台的笔记本/台式机再刷机。这是USB口兼容性问题，我没试过用USB转接器/拓展坞能不能解决这个问题，在没有可替代的笔记本/台式机时你可以尝试。
+  * 如果AMD平台笔记本/台式机用 Amlogic USB Burning Tool 刷入镜像时在1%处报错，无论插USB 2.0 USB 3.0端口。换Intel平台的笔记本/台式机再刷机。这是USB口兼容性问题，或者是USB控制器的差异 <br>
+  * 我没试过用USB 2.0转接器/拓展坞能不能解决这个问题，在没有可替代的笔记本/台式机时你可以尝试 <br>
+    <img src=https://raw.githubusercontent.com/CopyPasteArtisan/armbian-official-onecloud-usb-burn-images/refs/heads/main/img/Amlogic%20USB%20Burning%20Tool%20v2.2.4_AMD_USB2.0_2026-07-19_19-21-19.png />
 ## Armbian的相关信息
 * 当前镜像站：[https://docs.armbian.com/Mirrors/#current-mirrors](https://docs.armbian.com/Mirrors/#current-mirrors) ，如果不可用使用其他镜像站代替
 * 各分支URL地址
