@@ -4,8 +4,8 @@
 
   <img alt="OneCloud running Armbian Linux 6 6 43-current-meson--Ubuntu stable (noble)" src="https://raw.githubusercontent.com/CopyPasteArtisan/armbian-official-onecloud-usb-burn-images/refs/heads/main/img/Xshell_Zz0XSVYmAb-1.png" /> <br>
 
-## 线刷包报错问题
-  * 如果AMD平台笔记本/台式机用 Amlogic USB Burning Tool 刷入镜像时在1%处报错，无论插USB 2.0 USB 3.0端口。换Intel平台的笔记本/台式机再刷机。这是USB口兼容性问题，或者是USB控制器的差异 <br>
+## Amlogic USB Burning Tool 线刷报错问题
+  * 如果AMD平台笔记本/台式机用 Amlogic USB Burning Tool 刷入镜像时在1%处报错，无论插前后左右的USB 2.0、USB 3.0端口，换Intel平台的笔记本/台式机再刷机。这是USB兼容性问题，或者是USB控制器的问题 <br>
     ```
     1% [0x10102002]Romcode/初始化DDR/初始化寄存器/USB控制命令出错
     [HUBx-x][Err]--[0x10102002]Romcode/初始化DDR/初始化寄存器/USB控制命令出错
@@ -14,7 +14,7 @@
   * 我没试过用USB 2.0转接器/拓展坞能不能解决这个问题，在没有可替代的笔记本/台式机时你可以尝试 <br>
     
 ## Armbian的相关信息
-* 当前镜像站：[https://docs.armbian.com/Mirrors/#current-mirrors](https://docs.armbian.com/Mirrors/#current-mirrors) ，如果不可用使用其他镜像站代替
+* Armbian镜像列表：[https://docs.armbian.com/Mirrors/#current-mirrors](https://docs.armbian.com/Mirrors/#current-mirrors) ，如果某个不可用换其它镜像站
 * 各分支URL地址
   |Content |URL |Description |
   |---|---|---|
@@ -47,8 +47,8 @@
   // 先查看你的hosts
   cat /etc/hosts
   
-  // 供参考
-  hostnamectl set-hostname WS1608-006220 && sudo sed -i 's/\bonecloud\b/WS1608-006220/g' /etc/hosts && grep WS1608 /etc/hosts
+  // 供参考，root权限
+  hostnamectl set-hostname WS1608-006220 && sed -i 's/\bonecloud\b/WS1608-006220/g' /etc/hosts && grep WS1608 /etc/hosts
   ```
 
 * 如果SSH登录后没有MOTD (Message of the Day) ，Shell执行下面命令，然后重新登录:
@@ -85,7 +85,7 @@
   reboot
   
 
-  // 适用于Armbian_23.11.1，nmcli查看网络详情
+  // 适用于Armbian_23.11.1，nmcli来管理MAC地址
   nmcli connection show
   
   NAME                UUID                                  TYPE      DEVICE 
