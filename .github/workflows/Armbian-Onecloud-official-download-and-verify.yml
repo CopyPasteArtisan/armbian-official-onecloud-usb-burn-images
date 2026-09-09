@@ -205,11 +205,11 @@ jobs:
           # export IMAGENAME for later steps (use the compressed filename)
           echo "IMAGENAME=$(basename "$burn_xz")" >> $GITHUB_ENV
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ env.IMAGENAME }}-${{ env.TAG }}
-          path: output/images/*
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@v6
+      #   with:
+      #     name: ${{ env.IMAGENAME }}-${{ env.TAG }}
+      #     path: output/images/*
 
       - name: Generate release informations
         run: |
