@@ -325,7 +325,7 @@ jobs:
             ## 验证方法
             
             \`\`\`bash
-            sha256sum -c sha256sum
+            sha256sum [*filename*].burn.img.xz
             \`\`\`
           EOF
 
