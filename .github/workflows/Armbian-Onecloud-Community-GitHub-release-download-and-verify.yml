@@ -6,7 +6,7 @@ on:
       image_url:
         description: 'Armbian community releases img.xz 链接'
         required: true
-        default: 'https://github.com/armbian/community/releases/download/26.2.0-trunk.904/Armbian_community_26.2.0-trunk.904_Onecloud_trixie_current_6.12.28_minimal.img.xz'
+        default: 'https://github.com/armbian/community/releases/download/26.11.0-trunk.33/Armbian_community_26.11.0-trunk.33_Onecloud_trixie_current_6.12.28_minimal.img.xz'
 
 env:
   SCRIPT_REPO: ${{ github.repository }}
@@ -309,11 +309,11 @@ jobs:
           # export IMAGENAME for later steps (use the compressed filename)
           echo "IMAGENAME=$(basename "$burn_xz")" >> $GITHUB_ENV
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ env.IMAGENAME }}-${{ env.TAG }}
-          path: output/images/*
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@v6
+      #   with:
+      #     name: ${{ env.IMAGENAME }}-${{ env.TAG }}
+      #     path: output/images/*
 
       - name: Generate release informations
         run: |
